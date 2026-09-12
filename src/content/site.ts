@@ -104,15 +104,13 @@ export const SITE = {
   ],
 };
 
-/** Links shown in the signed-in user menu, by role. */
+/** Links shown in the signed-in user menu, by role (the calendar item is added by the menu itself). */
 export const USER_MENU = {
   CLIENT: [
-    { label: "Book a session", href: "/#book" },
     { label: "My sessions", href: "/app" },
     { label: "My locations", href: "/app/locations" },
   ],
   TRAINER: [
-    { label: "Calendar", href: "/trainer" },
     { label: "Requests", href: "/trainer/requests" },
     { label: "Availability", href: "/trainer/availability" },
     { label: "Clients", href: "/trainer/clients" },

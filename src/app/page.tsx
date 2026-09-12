@@ -13,24 +13,18 @@ import { Button } from "@/components/ui/button";
 import { formatInTimeZone } from "date-fns-tz";
 
 export default async function Home({ searchParams }: PageProps<"/">) {
-  const session = await auth();
-  const user = session?.user;
+  const sp = await searchParams;
+  const user = (await auth())?.user;
 
   return (
     <>
-      <SiteHeader />
+      <SiteHeader calendar={user ? <CalendarModalContent user={user} sp={sp} /> : undefined} calendarOpen={sp.cal === "1"} />
       <main className="flex-1">
-        {user ? (
-          <BookingPanel user={user} sp={await searchParams} />
-        ) : (
-          <>
-            <Hero />
-            <Intro />
-          </>
-        )}
+        <Hero signedIn={!!user} />
+        <Intro />
         <MeetToby />
         <KindWords />
-        <TrainingOptions />
+        <TrainingOptions signedIn={!!user} />
         <Partners />
         <Areas />
         <Contact />
@@ -40,27 +34,17 @@ export default async function Home({ searchParams }: PageProps<"/">) {
   );
 }
 
-/** Signed-in view at the top of the home page: the booking app for clients, the calendar for the trainer. */
-async function BookingPanel({
+/** What the account-menu calendar modal shows: the booking wizard for clients, the week calendar for the trainer. */
+async function CalendarModalContent({
   user,
   sp,
 }: {
-  user: { id: string; name?: string | null; role: "CLIENT" | "TRAINER" };
+  user: { id: string; role: "CLIENT" | "TRAINER" };
   sp: Record<string, string | string[] | undefined>;
 }) {
   const settings = await getSchedulingSettings();
-  const firstName = user.name?.split(" ")[0];
 
-  if (user.role === "TRAINER") {
-    return (
-      <section id="book" className="scroll-mt-16 border-b bg-background">
-        <div className="mx-auto max-w-6xl px-4 py-8">
-          <p className="mb-4 font-heading text-sm font-semibold uppercase tracking-widest text-tjm-orange">Welcome back{firstName ? `, ${firstName}` : ""}</p>
-          <TrainerCalendarView sp={sp} basePath="/" />
-        </div>
-      </section>
-    );
-  }
+  if (user.role === "TRAINER") return <TrainerCalendarView sp={sp} basePath="/" />;
 
   const [locations, upcoming] = await Promise.all([
     db.location.findMany({ where: { userId: user.id }, orderBy: { createdAt: "asc" }, select: { id: true, label: true, formatted: true } }),
@@ -73,36 +57,25 @@ async function BookingPanel({
   ]);
 
   return (
-    <section id="book" className="scroll-mt-16 border-b bg-background">
-      <div className="mx-auto max-w-6xl px-4 py-8">
-        <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
-          <div>
-            <p className="font-heading text-sm font-semibold uppercase tracking-widest text-tjm-orange">Welcome back{firstName ? `, ${firstName}` : ""}</p>
-            <h1 className="font-heading text-3xl font-bold">Book a session with Toby</h1>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Pick a location and duration, then choose a start time. Sessions need {settings.minNoticeHours} hours&apos; notice.
-            </p>
-          </div>
-          {upcoming.length > 0 && (
-            <div className="rounded-md border bg-card px-4 py-3 text-sm">
-              <div className="mb-1 font-heading text-xs font-semibold uppercase tracking-wide text-muted-foreground">Next up</div>
-              <ul className="space-y-1">
-                {upcoming.map((b) => (
-                  <li key={b.id} className="flex items-center gap-2">
-                    <span>{formatInTimeZone(b.startAt, settings.timezone, "EEE d MMM, HH:mm")}</span>
-                    <span className="text-muted-foreground">· {b.location.label ?? b.location.formatted}</span>
-                    <StatusBadge status={b.status} />
-                  </li>
-                ))}
-              </ul>
-              <Button variant="link" size="sm" className="mt-1 h-auto p-0" nativeButton={false} render={<Link href="/app" />}>
-                All my sessions →
-              </Button>
-            </div>
-          )}
+    <div className="space-y-6">
+      {upcoming.length > 0 && (
+        <div className="rounded-md border bg-muted/40 px-4 py-3 text-sm">
+          <div className="mb-1 font-heading text-xs font-semibold uppercase tracking-wide text-muted-foreground">Next up</div>
+          <ul className="space-y-1">
+            {upcoming.map((b) => (
+              <li key={b.id} className="flex flex-wrap items-center gap-2">
+                <span>{formatInTimeZone(b.startAt, settings.timezone, "EEE d MMM, HH:mm")}</span>
+                <span className="text-muted-foreground">· {b.location.label ?? b.location.formatted}</span>
+                <StatusBadge status={b.status} />
+              </li>
+            ))}
+          </ul>
+          <Button variant="link" size="sm" className="mt-1 h-auto p-0" nativeButton={false} render={<Link href="/app" />}>
+            All my sessions →
+          </Button>
         </div>
-        <BookingWizard locations={locations} todayKey={dateKey(new Date(), settings.timezone)} />
-      </div>
-    </section>
+      )}
+      <BookingWizard locations={locations} todayKey={dateKey(new Date(), settings.timezone)} />
+    </div>
   );
 }

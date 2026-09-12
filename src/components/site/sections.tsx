@@ -4,8 +4,11 @@ import { SITE } from "@/content/site";
 import { Button } from "@/components/ui/button";
 import { ContactForm } from "./contact-form";
 
+/** Where "Book a session" CTAs go: the calendar modal when signed in, otherwise registration. */
+const bookHref = (signedIn: boolean) => (signedIn ? "/?cal=1" : "/register");
+
 /** Full-bleed running-legs photo with the headline, as on tjmtraining.com. */
-export function Hero() {
+export function Hero({ signedIn = false }: { signedIn?: boolean }) {
   return (
     <section className="relative isolate min-h-[70vh] overflow-hidden text-white">
       <Image src="/site/hero-run.jpg" alt="" fill priority className="-z-20 object-cover" sizes="100vw" />
@@ -21,7 +24,7 @@ export function Hero() {
           ))}
         </ul>
         <div className="mt-10 flex flex-wrap gap-3">
-          <Button size="lg" className="font-heading font-semibold" nativeButton={false} render={<Link href="/register" />}>
+          <Button size="lg" className="font-heading font-semibold" nativeButton={false} render={<Link href={bookHref(signedIn)} />}>
             Book a session
           </Button>
           <Button size="lg" variant="outline" className="border-white/40 bg-black/30 text-white hover:bg-white/10 hover:text-white" nativeButton={false} render={<Link href="/#meet-toby" />}>
@@ -94,7 +97,7 @@ export function KindWords() {
   );
 }
 
-export function TrainingOptions() {
+export function TrainingOptions({ signedIn = false }: { signedIn?: boolean }) {
   return (
     <section id="training-options" className="scroll-mt-20 bg-tjm-charcoal text-white">
       <div className="mx-auto max-w-6xl px-6 py-16">
@@ -113,7 +116,7 @@ export function TrainingOptions() {
           ))}
         </div>
         <div className="mt-10 text-center">
-          <Button size="lg" className="font-heading font-semibold" nativeButton={false} render={<Link href="/register" />}>
+          <Button size="lg" className="font-heading font-semibold" nativeButton={false} render={<Link href={bookHref(signedIn)} />}>
             Book a session online
           </Button>
         </div>

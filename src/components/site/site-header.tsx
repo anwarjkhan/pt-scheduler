@@ -5,8 +5,12 @@ import { SITE } from "@/content/site";
 import { UserMenu } from "./user-menu";
 import { Button } from "@/components/ui/button";
 
-/** Site-wide header: logo, marketing nav, and Sign in / Register or the signed-in user menu. */
-export async function SiteHeader() {
+/**
+ * Site-wide header: logo, marketing nav, and Sign in / Register or the signed-in user menu.
+ * `calendar` (server-rendered booking wizard / trainer calendar) is passed by the home page so the
+ * user menu can show it in a modal; other pages navigate home to open it.
+ */
+export async function SiteHeader({ calendar, calendarOpen }: { calendar?: React.ReactNode; calendarOpen?: boolean } = {}) {
   const session = await auth();
   const user = session?.user;
 
@@ -32,7 +36,12 @@ export async function SiteHeader() {
 
         <div className="ml-auto flex items-center gap-2">
           {user ? (
-            <UserMenu user={{ name: user.name, email: user.email, image: user.image, role: user.role }} signOutAction={doSignOut} />
+            <UserMenu
+              user={{ name: user.name, email: user.email, image: user.image, role: user.role }}
+              calendar={calendar}
+              calendarOpen={calendarOpen}
+              signOutAction={doSignOut}
+            />
           ) : (
             <>
               <Button variant="ghost" size="sm" className="text-white hover:bg-white/10 hover:text-white" nativeButton={false} render={<Link href="/signin" />}>

@@ -4,7 +4,7 @@ The tjmtraining.com marketing site rebuilt in Next.js, with an integrated bookin
 
 ## How the site and the booking app fit together
 
-- **`/`** — the marketing home page (hero, Meet Toby, Kind words, Training Options, Partners, Areas, Contact). Signed-out visitors see **Sign in** / **Register** in the header. Once signed in, the header shows a **user avatar with a dropdown** (client: Book a session, My sessions, My locations; trainer: Calendar, Requests, Availability, Clients, Settings) and the **booking app appears at the top of the home page** — the booking calendar for clients, the week calendar for the trainer — with the rest of the site below.
+- **`/`** — the marketing home page (hero, Meet Toby, Kind words, Training Options, Partners, Areas, Contact). Signed-out visitors see **Sign in** / **Register** in the header. Once signed in, the header shows a **user avatar with a dropdown** (client: Book a session, My sessions, My locations; trainer: Calendar, Requests, Availability, Clients, Settings). The first item opens the **calendar in a modal** — the booking wizard for clients, the week calendar for the trainer. `/?cal=1` opens it directly (used by the site's "Book a session" buttons when signed in).
 - **`/signin`, `/register`** — Google sign-in (same flow; Register just sets expectations for new clients). A dev login is available locally with `DEV_LOGIN=true`.
 - **`/app/*`** (client) and **`/trainer/*`** (trainer) — the deeper booking-app pages, wrapped in the site header/footer with a charcoal sub-nav.
 - **`/personal-trainer-*`, `/injury-rehab-*`, `/privacy-policy`** — the site's area and legal pages, rendered from `src/content/pages.json` (text scraped from the live site).

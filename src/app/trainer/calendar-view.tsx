@@ -26,13 +26,13 @@ export async function TrainerCalendarView({ sp, basePath = "/trainer" }: { sp: P
   const [{ days }, pendingCount] = await Promise.all([buildCalendarDays(dates), db.booking.count({ where: { status: "PENDING" } })]);
 
   const step = view === "day" ? 1 : 7;
-  const href = (d: string, v = view) => `${basePath}?view=${v}&date=${d}${basePath === "/" ? "#book" : ""}`;
+  const href = (d: string, v = view) => `${basePath}?view=${v}&date=${d}${basePath === "/" ? "&cal=1" : ""}`;
   const tightCount = days.reduce((n, d) => n + d.segments.filter((s) => s.shortfallMin > 0).length, 0);
 
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-2">
-        <h1 className="font-heading text-2xl font-semibold">Calendar</h1>
+        {basePath !== "/" && <h1 className="font-heading text-2xl font-semibold">Calendar</h1>}
         <div className="ml-auto flex items-center gap-1">
           <Button variant="outline" size="icon" nativeButton={false} render={<Link href={href(format(addDays(parseISO(anchor), -step), "yyyy-MM-dd"))} />} aria-label="Previous">
             <ChevronLeft className="h-4 w-4" />

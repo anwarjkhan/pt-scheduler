@@ -7,7 +7,7 @@ export default async function ClientLayout({ children }: LayoutProps<"/app">) {
     <AppShell
       title="My training"
       nav={[
-        { href: "/#book", label: "Book" },
+        { href: "/?cal=1", label: "Book" },
         { href: "/app", label: "My sessions" },
         { href: "/app/locations", label: "Locations" },
         ...(user.role === "TRAINER" ? [{ href: "/trainer", label: "Trainer view" }] : []),
