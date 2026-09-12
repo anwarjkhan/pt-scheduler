@@ -44,9 +44,9 @@ export function PillarChips({ pillars, actions }: { pillars: Pillar[]; actions: 
 
       {/* Reserved space so the hero doesn't reflow as text appears and goes.
           Height fits the longest pillar body at the narrowest supported width. */}
-      <div className="mt-6 min-h-24 max-w-2xl sm:min-h-20" aria-live="polite">
+      <div className="mt-6 min-h-40 max-w-3xl sm:min-h-32" aria-live="polite">
         <p
-          className={`text-sm font-light leading-relaxed text-white drop-shadow transition-opacity duration-200 motion-reduce:transition-none ${
+          className={`text-lg font-light leading-relaxed text-white drop-shadow-lg transition-opacity duration-200 motion-reduce:transition-none sm:text-xl ${
             active ? "opacity-100" : "opacity-0"
           }`}
         >
