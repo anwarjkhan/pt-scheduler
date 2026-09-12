@@ -1,57 +1,58 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import type { Pillar } from "@/lib/pillars";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 /**
- * The hero chips. A pillar with body text is a button that opens an explainer;
- * one without (the site.ts fallback, or an entry Toby has not written yet) stays
- * a plain chip, so nothing opens an empty modal.
+ * The hero chips and, below the CTA buttons, the text for whichever chip is
+ * hovered or focused. The buttons are passed in rather than rendered by the
+ * caller so the text can sit underneath them and reserve its own space.
  */
-export function PillarChips({ pillars }: { pillars: Pillar[] }) {
-  const [open, setOpen] = useState<Pillar | null>(null);
+export function PillarChips({ pillars, actions }: { pillars: Pillar[]; actions: ReactNode }) {
+  const [active, setActive] = useState<Pillar | null>(null);
 
   return (
     <>
       <ul className="mt-8 flex flex-wrap gap-2">
         {pillars.map((p, i) => {
-          const chip = "rounded-md bg-black/45 px-3 py-1 font-heading text-sm font-semibold text-tjm-yellow backdrop-blur-sm";
           const style = { "--rise-delay": `${240 + i * 60}ms` } as React.CSSProperties;
+          const hasBody = !!p.body;
           return (
             <li key={p.id} className="animate-rise" style={style}>
-              {p.body ? (
-                <button
-                  type="button"
-                  onClick={() => setOpen(p)}
-                  className={`${chip} cursor-pointer transition hover:bg-black/70 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-tjm-yellow motion-reduce:transition-none`}
-                >
-                  {p.label}
-                </button>
-              ) : (
-                <span className={chip}>{p.label}</span>
-              )}
+              <span
+                // Focusable only when there is something to reveal, so keyboard
+                // users aren't given stops that do nothing.
+                tabIndex={hasBody ? 0 : undefined}
+                onMouseEnter={hasBody ? () => setActive(p) : undefined}
+                onMouseLeave={hasBody ? () => setActive(null) : undefined}
+                onFocus={hasBody ? () => setActive(p) : undefined}
+                onBlur={hasBody ? () => setActive(null) : undefined}
+                className={`block rounded-md bg-black/45 px-3 py-1 font-heading text-sm font-semibold text-tjm-yellow backdrop-blur-sm transition ${
+                  hasBody
+                    ? "cursor-default hover:bg-black/70 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-tjm-yellow"
+                    : ""
+                }`}
+              >
+                {p.label}
+              </span>
             </li>
           );
         })}
       </ul>
 
-      <Dialog open={!!open} onOpenChange={(o) => !o && setOpen(null)}>
-        <DialogContent className="max-h-[85vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="font-heading text-2xl">{open?.label}</DialogTitle>
-          </DialogHeader>
-          {/* Toby's copy: blank lines start a new paragraph. */}
-          <div className="space-y-3 text-sm leading-relaxed text-muted-foreground">
-            {(open?.body ?? "")
-              .split(/\n{2,}/)
-              .filter(Boolean)
-              .map((para, i) => (
-                <p key={i}>{para}</p>
-              ))}
-          </div>
-        </DialogContent>
-      </Dialog>
+      {actions}
+
+      {/* Reserved space so the hero doesn't reflow as text appears and goes.
+          Height fits the longest pillar body at the narrowest supported width. */}
+      <div className="mt-6 min-h-24 max-w-2xl sm:min-h-20" aria-live="polite">
+        <p
+          className={`text-sm font-light leading-relaxed text-white drop-shadow transition-opacity duration-200 motion-reduce:transition-none ${
+            active ? "opacity-100" : "opacity-0"
+          }`}
+        >
+          {active?.body}
+        </p>
+      </div>
     </>
   );
 }

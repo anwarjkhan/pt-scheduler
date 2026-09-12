@@ -23,15 +23,19 @@ export function Hero({ signedIn = false, pillars }: { signedIn?: boolean; pillar
         <p className="animate-rise mt-6 max-w-2xl text-lg font-light leading-relaxed drop-shadow sm:text-xl" style={{ "--rise-delay": "120ms" } as React.CSSProperties}>
           {SITE.hero.body}
         </p>
-        <PillarChips pillars={pillars} />
-        <div className="animate-rise mt-10 flex flex-wrap gap-3" style={{ "--rise-delay": `${240 + pillars.length * 60 + 80}ms` } as React.CSSProperties}>
-          <Button size="lg" className="font-heading font-semibold" nativeButton={false} render={<Link href={bookHref(signedIn)} />}>
-            Book a session
-          </Button>
-          <Button size="lg" variant="outline" className="border-white/40 bg-black/30 text-white hover:bg-white/10 hover:text-white" nativeButton={false} render={<Link href="/#meet-toby" />}>
-            Meet Toby
-          </Button>
-        </div>
+        <PillarChips
+          pillars={pillars}
+          actions={
+            <div className="animate-rise mt-10 flex flex-wrap gap-3" style={{ "--rise-delay": `${240 + pillars.length * 60 + 80}ms` } as React.CSSProperties}>
+              <Button size="lg" className="font-heading font-semibold" nativeButton={false} render={<Link href={bookHref(signedIn)} />}>
+                Book a session
+              </Button>
+              <Button size="lg" variant="outline" className="border-white/40 bg-black/30 text-white hover:bg-white/10 hover:text-white" nativeButton={false} render={<Link href="/#meet-toby" />}>
+                Meet Toby
+              </Button>
+            </div>
+          }
+        />
       </div>
       {/* Scroll cue — the one looping animation on the page. */}
       <a
