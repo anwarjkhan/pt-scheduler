@@ -1,0 +1,170 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// ---------- Auth.js ----------
+
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String    @unique
+  emailVerified DateTime?
+  image         String?
+  phone         String?
+  role          String    @default("CLIENT") // CLIENT | TRAINER
+  createdAt     DateTime  @default(now())
+
+  accounts  Account[]
+  sessions  Session[]
+  locations Location[]
+  bookings  Booking[]
+  series    BookingSeries[]
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+// ---------- Trainer configuration ----------
+
+model TrainerSettings {
+  id              String  @id @default("singleton")
+  timezone        String  @default("Europe/London")
+  homeAddress     String?
+  homePlaceId     String?
+  homeLat         Float?
+  homeLng         Float?
+  maxRadiusMiles  Float   @default(15)
+  bufferMinutes   Int     @default(10)
+  slotStepMinutes Int     @default(30)
+  minNoticeHours  Int     @default(24)
+}
+
+/// Weekly template. Multiple ranges per weekday allowed. Times are "HH:mm" in trainer tz.
+model AvailabilityRule {
+  id        String @id @default(cuid())
+  weekday   Int // 0 = Sunday ... 6 = Saturday
+  startTime String
+  endTime   String
+
+  @@index([weekday])
+}
+
+/// Per-date overrides. UNAVAILABLE with null times = whole day off.
+model AvailabilityException {
+  id        String  @id @default(cuid())
+  date      String // "yyyy-MM-dd" in trainer tz
+  type      String // UNAVAILABLE | EXTRA
+  startTime String?
+  endTime   String?
+  note      String?
+
+  @@index([date])
+}
+
+// ---------- Locations ----------
+
+model Location {
+  id        String  @id @default(cuid())
+  userId    String
+  label     String?
+  formatted String
+  placeId   String?
+  lat       Float
+  lng       Float
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  bookings Booking[]
+  series   BookingSeries[]
+}
+
+// ---------- Bookings ----------
+
+model BookingSeries {
+  id          String   @id @default(cuid())
+  clientId    String
+  locationId  String
+  weekday     Int
+  startTime   String // "HH:mm" trainer tz
+  durationMin Int
+  startDate   String // yyyy-MM-dd
+  endDate     String // yyyy-MM-dd
+  status      String   @default("PENDING") // PENDING | ACCEPTED | DECLINED | CANCELLED
+  createdAt   DateTime @default(now())
+
+  client   User      @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  location Location  @relation(fields: [locationId], references: [id])
+  bookings Booking[]
+}
+
+model Booking {
+  id           String    @id @default(cuid())
+  clientId     String
+  seriesId     String?
+  locationId   String
+  startAt      DateTime
+  endAt        DateTime
+  durationMin  Int
+  status       String    @default("PENDING") // PENDING | ACCEPTED | DECLINED | CANCELLED_BY_CLIENT | CANCELLED_BY_TRAINER | COMPLETED
+  clientNote   String?
+  trainerNote  String?
+  cancelReason String?
+  cancelledAt  DateTime?
+  createdAt    DateTime  @default(now())
+
+  client   User           @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  series   BookingSeries? @relation(fields: [seriesId], references: [id], onDelete: SetNull)
+  location Location       @relation(fields: [locationId], references: [id])
+
+  @@index([startAt, status])
+  @@index([clientId])
+}
+
+/// Cached Distance Matrix results keyed by rounded coordinates.
+model CommuteCache {
+  id        String   @id @default(cuid())
+  fromKey   String
+  toKey     String
+  seconds   Int
+  meters    Int
+  estimated Boolean  @default(false) // true when computed via haversine fallback
+  fetchedAt DateTime @default(now())
+
+  @@unique([fromKey, toKey])
+}
