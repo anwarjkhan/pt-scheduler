@@ -88,3 +88,18 @@ export async function deleteServiceArea(id: string) {
   await db.serviceArea.delete({ where: { id } });
   revalidatePath("/", "layout");
 }
+
+export async function updateServiceArea(id: string, _prev: SettingsState, fd: FormData): Promise<SettingsState> {
+  await requireTrainer();
+  const raw = Object.fromEntries(fd) as Record<string, string>;
+  if (!raw.lat || !raw.lng) return { error: "Pick an address from the suggestions (or enter coordinates)." };
+  const parsed = areaSchema.safeParse(raw);
+  if (!parsed.success) return { error: parsed.error.issues.map((i) => i.message).join("; ") };
+  const d = parsed.data;
+  await db.serviceArea.update({
+    where: { id },
+    data: { label: d.label, formatted: d.address, placeId: d.placeId || null, lat: d.lat, lng: d.lng, radiusMiles: d.radiusMiles },
+  });
+  revalidatePath("/", "layout");
+  return { ok: true };
+}

@@ -6,7 +6,7 @@ import { ServiceAreas } from "./service-areas";
 export default async function SettingsPage() {
   const [s, areas] = await Promise.all([
     getTrainerSettings(),
-    db.serviceArea.findMany({ orderBy: { createdAt: "asc" }, select: { id: true, label: true, formatted: true, radiusMiles: true } }),
+    db.serviceArea.findMany({ orderBy: { createdAt: "asc" }, select: { id: true, label: true, formatted: true, placeId: true, lat: true, lng: true, radiusMiles: true } }),
   ]);
   return (
     <div className="space-y-6">
