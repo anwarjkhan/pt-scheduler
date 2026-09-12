@@ -3,8 +3,8 @@
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import { requireTrainer } from "@/lib/session";
-import { evaluateExistingBooking, loadDayContext } from "@/lib/bookings";
-import { dateKey } from "@/lib/scheduling";
+import { bookingInclude, evaluateExistingBooking, loadDayContext } from "@/lib/bookings";
+import { dateKey, zoned } from "@/lib/scheduling";
 import { getSchedulingSettings } from "@/lib/settings";
 
 export type TrainerActionResult = { ok?: boolean; error?: string; warnings?: string[] };
@@ -100,6 +100,44 @@ export async function declineSeries(seriesId: string, reason?: string): Promise<
   await syncSeriesStatus(seriesId);
   revalidate();
   return { ok: true };
+}
+
+/**
+ * Move a booking to a new start time on the same day, keeping its duration.
+ * Re-runs the scheduling rules: a hard overlap or a slot outside availability is
+ * refused, a tight commute is allowed but reported — the same contract as accept.
+ */
+export async function rescheduleBooking(id: string, startTime: string): Promise<TrainerActionResult> {
+  await requireTrainer();
+  if (!/^\d{2}:\d{2}$/.test(startTime)) return { error: "Invalid time." };
+
+  const b = await db.booking.findUnique({ where: { id }, include: bookingInclude });
+  if (!b) return { error: "Booking not found." };
+  if (!["PENDING", "ACCEPTED"].includes(b.status)) return { error: "Only pending or confirmed sessions can be moved." };
+
+  const { timezone } = await getSchedulingSettings();
+  const date = dateKey(b.startAt, timezone);
+  const start = zoned(date, startTime, timezone);
+  if (start.getTime() === b.startAt.getTime()) return { ok: true };
+
+  const durationMin = Math.round((b.endAt.getTime() - b.startAt.getTime()) / 60000);
+  const end = new Date(start.getTime() + durationMin * 60000);
+
+  // Evaluate the proposed position. Only confirmed sessions block a move —
+  // other pending requests are competing for the slot, not holding it (same
+  // rule as acceptBooking).
+  const ctx = await loadDayContext(date);
+  ctx.existing = ctx.existing.filter((x) => x.status === "ACCEPTED");
+  const ev = await evaluateExistingBooking({ ...b, startAt: start, endAt: end }, ctx);
+  if (ev.overlaps) return { error: "That clashes with another session." };
+  if (ev.outsideAvailability) return { error: "That's outside your available hours." };
+
+  await db.booking.update({ where: { id }, data: { startAt: start, endAt: end } });
+  revalidate();
+  return {
+    ok: true,
+    warnings: ev.warning ? ["Moved, but the commute is now tight — check the gap either side."] : [],
+  };
 }
 
 /** Derive series status from its occurrences. */

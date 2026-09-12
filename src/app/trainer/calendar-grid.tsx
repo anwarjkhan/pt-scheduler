@@ -1,12 +1,22 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { format, parseISO } from "date-fns";
 import type { CalendarBooking, CalendarDay } from "@/lib/calendar-data";
 import { hhmmToMinutes } from "@/lib/scheduling";
 import { cn } from "@/lib/utils";
 import { BookingDialog } from "./booking-dialog";
+import { rescheduleBooking } from "./actions";
+import { useDragReschedule } from "./use-drag-reschedule";
 import { AlertTriangle, Car } from "lucide-react";
+
+/** Sessions that can be moved. Past and closed bookings stay put. */
+const MOVABLE = new Set(["PENDING", "ACCEPTED"]);
+
+function minutesToHHMM(m: number) {
+  return `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
+}
 
 const PX_PER_MIN = 1.1;
 
@@ -46,6 +56,11 @@ function layoutLanes(bookings: CalendarBooking[]) {
 
 export function CalendarGrid({ days, todayKey }: { days: CalendarDay[]; todayKey: string }) {
   const [open, setOpen] = useState<CalendarBooking | null>(null);
+  const router = useRouter();
+  const [, startMove] = useTransition();
+  // Optimistic position while the server confirms; cleared on refresh or revert.
+  const [moved, setMoved] = useState<Record<string, string>>({});
+  const [toast, setToast] = useState<{ text: string; error: boolean } | null>(null);
 
   // Visible range: union of windows and bookings, padded to whole hours, min 07:00–20:00.
   let minM = 7 * 60;
@@ -65,6 +80,44 @@ export function CalendarGrid({ days, todayKey }: { days: CalendarDay[]; todayKey
   const height = (maxM - minM) * PX_PER_MIN;
   const y = (hhmm: string) => (hhmmToMinutes(hhmm) - minM) * PX_PER_MIN;
   const hours = Array.from({ length: (maxM - minM) / 60 + 1 }, (_, i) => minM + i * 60);
+
+  const handleDrop = (id: string, startTime: string) => {
+    const previous = moved[id];
+    setMoved((m) => ({ ...m, [id]: startTime })); // optimistic
+    setToast(null);
+    startMove(async () => {
+      const r = await rescheduleBooking(id, startTime);
+      if (r.error) {
+        // Revert to wherever it was before this drag.
+        setMoved((m) => {
+          const n = { ...m };
+          if (previous) n[id] = previous;
+          else delete n[id];
+          return n;
+        });
+        setToast({ text: r.error, error: true });
+        return;
+      }
+      if (r.warnings?.length) setToast({ text: r.warnings.join(" "), error: false });
+      // Server state now matches; drop the override so fresh data wins.
+      setMoved((m) => {
+        const n = { ...m };
+        delete n[id];
+        return n;
+      });
+      router.refresh();
+    });
+  };
+
+  const { drag, begin, move, end, didMove } = useDragReschedule({ pxPerMin: PX_PER_MIN, minM, maxM, onDrop: handleDrop });
+
+  /** Apply any optimistic move to a booking before layout. */
+  const positioned = (b: CalendarBooking): CalendarBooking => {
+    const override = moved[b.id];
+    if (!override) return b;
+    const startMin = hhmmToMinutes(override);
+    return { ...b, startTime: override, endTime: minutesToHHMM(startMin + b.durationMin) };
+  };
 
   return (
     <div className="overflow-x-auto rounded-md border">
@@ -147,18 +200,35 @@ export function CalendarGrid({ days, todayKey }: { days: CalendarDay[]; todayKey
                   );
                 })}
                 {/* bookings */}
-                {layoutLanes(visible).map(({ b, lane, lanes }) => (
+                {layoutLanes(visible.map(positioned)).map(({ b, lane, lanes }) => {
+                  const dragging = drag?.id === b.id;
+                  const movable = MOVABLE.has(b.status);
+                  const top = dragging ? (drag!.startMin - minM) * PX_PER_MIN : y(b.startTime);
+                  return (
                   <button
                     key={b.id}
                     type="button"
-                    onClick={() => setOpen(b)}
+                    onPointerDown={
+                      movable
+                        ? (e) => begin(e, { id: b.id, startMin: hhmmToMinutes(b.startTime), durationMin: b.durationMin, date: day.date })
+                        : undefined
+                    }
+                    onPointerMove={movable ? move : undefined}
+                    onPointerUp={movable ? end : undefined}
+                    onPointerCancel={movable ? end : undefined}
+                    // A drag ends with a click event; ignore it so the dialog doesn't open.
+                    onClick={() => {
+                      if (!didMove()) setOpen(b);
+                    }}
                     className={cn(
                       "absolute z-[2] overflow-hidden rounded-md border px-1.5 py-0.5 text-left text-xs shadow-sm hover:brightness-95",
                       STATUS_STYLE[b.status] ?? "",
                       b.evaluation.warning && ["PENDING", "ACCEPTED"].includes(b.status) && "ring-2 ring-destructive",
+                      movable && "cursor-grab touch-none",
+                      dragging && "z-20 cursor-grabbing opacity-90 shadow-lg ring-2 ring-tjm-yellow",
                     )}
                     style={{
-                      top: y(b.startTime),
+                      top,
                       height: b.durationMin * PX_PER_MIN - 2,
                       left: `calc(${(lane / lanes) * 100}% + 4px)`,
                       width: `calc(${100 / lanes}% - 8px)`,
@@ -169,16 +239,32 @@ export function CalendarGrid({ days, todayKey }: { days: CalendarDay[]; todayKey
                       <span className="truncate">{b.clientName}</span>
                     </div>
                     <div className="truncate opacity-80">
-                      {b.startTime}–{b.endTime}
+                      {dragging ? `${minutesToHHMM(drag!.startMin)}–${minutesToHHMM(drag!.startMin + b.durationMin)}` : `${b.startTime}–${b.endTime}`}
                     </div>
                     {b.durationMin >= 60 && <div className="truncate opacity-70">{b.locationLabel}</div>}
                   </button>
-                ))}
+                  );
+                })}
               </div>
             </div>
           );
         })}
       </div>
+      {toast && (
+        <div
+          role="status"
+          className={cn(
+            "sticky bottom-2 z-30 mx-2 mb-2 flex items-center gap-2 rounded-md border px-3 py-2 text-xs shadow-lg",
+            toast.error ? "border-destructive bg-destructive/10 text-destructive" : "border-tjm-orange bg-[#fff1e6] text-[#7a3600]",
+          )}
+        >
+          <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+          <span className="flex-1">{toast.text}</span>
+          <button type="button" onClick={() => setToast(null)} className="underline opacity-70 hover:opacity-100">
+            Dismiss
+          </button>
+        </div>
+      )}
       {open && <BookingDialog booking={open} onClose={() => setOpen(null)} />}
     </div>
   );
