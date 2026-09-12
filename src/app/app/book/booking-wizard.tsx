@@ -24,26 +24,26 @@ export function BookingWizard({ locations, todayKey }: { locations: Location[]; 
   const [locationId, setLocationId] = useState<string>(locations[0]?.id ?? "");
   const [duration, setDuration] = useState<number>(60);
   const [weekStart, setWeekStart] = useState<Date>(() => startOfWeek(parseISO(todayKey), { weekStartsOn: 1 }));
-  const [days, setDays] = useState<DaySlots[] | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [result, setResult] = useState<{ key: string; days: DaySlots[] } | null>(null);
   const [selected, setSelected] = useState<{ day: DaySlots; slot: SlotDto } | null>(null);
 
   const weekKey = format(weekStart, "yyyy-MM-dd");
+  const queryKey = `${weekKey}|${duration}|${locationId}`;
+  const days = result?.days ?? null;
+  const loading = !!locationId && result?.key !== queryKey;
 
   useEffect(() => {
     if (!locationId) return;
     let cancelled = false;
-    setLoading(true);
     fetch(`/api/slots?date=${weekKey}&days=7&duration=${duration}&locationId=${locationId}`)
       .then((r) => r.json())
       .then((j: SlotsResponse) => {
-        if (!cancelled) setDays(j.days);
-      })
-      .finally(() => !cancelled && setLoading(false));
+        if (!cancelled) setResult({ key: queryKey, days: j.days });
+      });
     return () => {
       cancelled = true;
     };
-  }, [weekKey, duration, locationId]);
+  }, [weekKey, duration, locationId, queryKey]);
 
   const onCreated = useCallback(
     (id: string) => {
@@ -202,7 +202,7 @@ function ConfirmDialog({
   );
 
   useEffect(() => {
-    if (!recurring) return setPreview(null);
+    if (!recurring) return;
     let cancelled = false;
     previewSeries(seriesArgs).then((r) => {
       if (cancelled) return;
@@ -238,7 +238,14 @@ function ConfirmDialog({
         <CommuteSummary evaluation={slot.evaluation} />
 
         <label className="flex items-center gap-2 text-sm">
-          <input type="checkbox" checked={recurring} onChange={(e) => setRecurring(e.target.checked)} />
+          <input
+            type="checkbox"
+            checked={recurring}
+            onChange={(e) => {
+              setRecurring(e.target.checked);
+              if (!e.target.checked) setPreview(null);
+            }}
+          />
           Repeat weekly
         </label>
         {recurring && (

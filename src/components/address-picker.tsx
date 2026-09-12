@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+
 import { useJsApiLoader } from "@react-google-maps/api";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -26,8 +27,8 @@ export function AddressPicker({
   label?: string;
   namePrefix?: string;
 }) {
+  // `value` seeds the picker; parents don't change it after mount.
   const [v, setV] = useState<AddressValue | null>(value);
-  useEffect(() => setV(value), [value]);
   const update = (next: AddressValue | null) => {
     setV(next);
     onChange?.(next);
@@ -60,7 +61,6 @@ function PlacesInput({
   const { isLoaded } = useJsApiLoader({ googleMapsApiKey: browserKey!, libraries: LIBRARIES });
   const ref = useRef<HTMLInputElement>(null);
   const [text, setText] = useState(value?.formatted ?? "");
-  useEffect(() => setText(value?.formatted ?? ""), [value]);
 
   useEffect(() => {
     if (!isLoaded || !ref.current) return;
@@ -107,11 +107,6 @@ function ManualInput({
   const [formatted, setFormatted] = useState(value?.formatted ?? "");
   const [lat, setLat] = useState(value ? String(value.lat) : "");
   const [lng, setLng] = useState(value ? String(value.lng) : "");
-  useEffect(() => {
-    setFormatted(value?.formatted ?? "");
-    setLat(value ? String(value.lat) : "");
-    setLng(value ? String(value.lng) : "");
-  }, [value]);
 
   const emit = (f: string, la: string, ln: string) => {
     const a = parseFloat(la);
