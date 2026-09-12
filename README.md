@@ -68,7 +68,36 @@ Evaluations are re-run on the trainer side at accept time and whenever the calen
 
 ## Deploying
 
-Vercel + Neon/Supabase Postgres is the intended path: set `DATABASE_URL`, switch the Prisma provider, run migrations, and add the production redirect URI to the Google OAuth client. `postinstall` runs `prisma generate`.
+Hosted on Vercel with Prisma Postgres. `postinstall` runs `prisma generate`, and the
+`vercel-build` script runs `prisma migrate deploy` before `next build`, so migrations
+are applied as part of each production deploy.
+
+### Branches
+
+`main` is production — pushing to it deploys to the live URL. Day-to-day work happens
+on `dev`, which Vercel builds as a **preview** deployment at its own URL, leaving
+production alone.
+
+```bash
+git switch dev
+# ... commit and push freely; each push gets a preview URL
+git switch main && git merge dev && git push    # release
+```
+
+CI (`.github/workflows/ci.yml`) runs typecheck, lint, tests and a production build on
+every push and PR to either branch, so a broken `dev` is red before it reaches `main`.
+
+Note that Preview currently shares the production database. A migration merged to `dev`
+will apply to live data on the next production deploy, and preview builds read the same
+rows — give Preview its own `DATABASE_URL` if that stops being acceptable.
+
+### Demo access
+
+With no Google OAuth client configured, set `DEV_LOGIN=true`, `DEMO_MODE=true` and a
+`DEMO_PASSCODE` to enable password-free sign-in on the deployed site: any seeded email
+plus the shared passcode. `authorize()` rejects a wrong passcode, so the deployment is
+not an open door, but it is a demo mechanism — configure Google sign-in before real
+client data goes in.
 
 ## Not yet included
 
