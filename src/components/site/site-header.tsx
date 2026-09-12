@@ -57,6 +57,11 @@ export async function SiteHeader({ calendar, calendarOpen }: { calendar?: React.
               <CalendarDays className="h-4 w-4" /> Book a session
             </Button>
           )}
+          {user?.role === "TRAINER" && (
+            <Button size="sm" className="font-heading font-semibold" disabled title="Clients book sessions — open your calendar from the account menu">
+              <CalendarDays className="h-4 w-4" /> Book a session
+            </Button>
+          )}
           <AccountMenu
             user={user ? { name: user.name, email: user.email, image: user.image, role: user.role } : null}
             badges={badges}
