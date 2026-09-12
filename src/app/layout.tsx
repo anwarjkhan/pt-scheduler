@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { Poppins, Nunito_Sans } from "next/font/google";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { BRAND } from "@/lib/brand";
+import { SITE } from "@/content/site";
 import "./globals.css";
 
 // Poppins for headings (as on tjmtraining.com); Nunito Sans stands in for Avenir Light body copy.
@@ -9,8 +9,8 @@ const heading = Poppins({ variable: "--font-heading", subsets: ["latin"], weight
 const body = Nunito_Sans({ variable: "--font-body", subsets: ["latin"], weight: ["300", "400", "600", "700"] });
 
 export const metadata: Metadata = {
-  title: `${BRAND.name} · Book a session`,
-  description: "Book personal training sessions with your trainer",
+  title: `${SITE.name} · Personal Training in Thames Ditton`,
+  description: "Personal training, prehab and rehab in Thames Ditton and Surrey — book sessions with Toby online.",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

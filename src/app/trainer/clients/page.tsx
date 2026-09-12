@@ -18,7 +18,7 @@ export default async function ClientsPage() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-semibold">Clients</h1>
+      <h1 className="font-heading text-2xl font-semibold">Clients</h1>
       {clients.length === 0 && <p className="text-sm text-muted-foreground">No clients have signed up yet.</p>}
       <div className="grid gap-4 md:grid-cols-2">
         {clients.map((c) => (

@@ -42,7 +42,7 @@ export default async function RequestsPage() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-semibold">Requests</h1>
+      <h1 className="font-heading text-2xl font-semibold">Requests</h1>
       {pending.length === 0 && <p className="text-sm text-muted-foreground">No pending requests.</p>}
 
       {[...seriesMap.entries()].map(([seriesId, occ]) => {

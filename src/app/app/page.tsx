@@ -29,8 +29,8 @@ export default async function ClientHome({ searchParams }: PageProps<"/app">) {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">My sessions</h1>
-        <Button nativeButton={false} render={<Link href="/app/book" />}>Book a session</Button>
+        <h1 className="font-heading text-2xl font-semibold">My sessions</h1>
+        <Button nativeButton={false} render={<Link href="/#book" />}>Book a session</Button>
       </div>
 
       {requested && (

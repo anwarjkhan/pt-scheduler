@@ -1,97 +1,108 @@
-import { auth, signIn, isDevLoginEnabled } from "@/auth";
-import { redirect } from "next/navigation";
-import { BRAND } from "@/lib/brand";
-import { Wordmark } from "@/components/app-shell";
+import Link from "next/link";
+import { auth } from "@/auth";
+import { db } from "@/lib/db";
+import { getSchedulingSettings } from "@/lib/settings";
+import { dateKey } from "@/lib/scheduling";
+import { SiteHeader } from "@/components/site/site-header";
+import { SiteFooter } from "@/components/site/site-footer";
+import { Areas, Contact, Hero, Intro, KindWords, MeetToby, Partners, TrainingOptions } from "@/components/site/sections";
+import { BookingWizard } from "@/app/app/book/booking-wizard";
+import { TrainerCalendarView } from "@/app/trainer/calendar-view";
+import { StatusBadge } from "@/components/status-badge";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-
-const PILLARS = ["Health", "Movement", "Prehab", "Rehab", "Fitness", "Biomechanics", "Injury Prevention"];
+import { formatInTimeZone } from "date-fns-tz";
 
 export default async function Home({ searchParams }: PageProps<"/">) {
   const session = await auth();
-  const { callbackUrl } = await searchParams;
-  const target = typeof callbackUrl === "string" ? callbackUrl : undefined;
-  if (session?.user) redirect(target ?? (session.user.role === "TRAINER" ? "/trainer" : "/app"));
-
-  const hasGoogle = !!process.env.AUTH_GOOGLE_ID;
+  const user = session?.user;
 
   return (
-    <main className="relative flex flex-1 flex-col">
-      {/* Hero: the site's sunset gradient under a dark vignette */}
-      <div className="absolute inset-0 -z-10 bg-tjm-sunset" />
-      <div className="absolute inset-0 -z-10 bg-[radial-gradient(ellipse_at_top_left,rgba(0,0,0,0.7),rgba(0,0,0,0.2)_50%,rgba(0,0,0,0.45))]" />
+    <>
+      <SiteHeader />
+      <main className="flex-1">
+        {user ? (
+          <BookingPanel user={user} sp={await searchParams} />
+        ) : (
+          <>
+            <Hero />
+            <Intro />
+          </>
+        )}
+        <MeetToby />
+        <KindWords />
+        <TrainingOptions />
+        <Partners />
+        <Areas />
+        <Contact />
+      </main>
+      <SiteFooter />
+    </>
+  );
+}
 
-      <header className="mx-auto flex w-full max-w-6xl items-center px-6 py-5 text-white">
-        <Wordmark className="text-2xl" />
-      </header>
+/** Signed-in view at the top of the home page: the booking app for clients, the calendar for the trainer. */
+async function BookingPanel({
+  user,
+  sp,
+}: {
+  user: { id: string; name?: string | null; role: "CLIENT" | "TRAINER" };
+  sp: Record<string, string | string[] | undefined>;
+}) {
+  const settings = await getSchedulingSettings();
+  const firstName = user.name?.split(" ")[0];
 
-      <section className="mx-auto grid w-full max-w-6xl flex-1 items-center gap-12 px-6 pb-16 pt-6 lg:grid-cols-[1.2fr_1fr]">
-        <div className="text-white">
-          <h1 className="font-heading text-5xl font-bold leading-[1.05] drop-shadow-md sm:text-6xl lg:text-7xl">{BRAND.tagline}</h1>
-          <p className="mt-6 max-w-xl text-lg font-light leading-relaxed text-white/90">{BRAND.subtitle}</p>
-          <ul className="mt-8 flex flex-wrap gap-2">
-            {PILLARS.map((p) => (
-              <li key={p} className="rounded-md bg-black/40 px-3 py-1 font-heading text-sm font-semibold text-tjm-yellow backdrop-blur-sm">
-                {p}
-              </li>
-            ))}
-          </ul>
-        </div>
-
-        {/* Sign-in panel: charcoal card with a yellow edge, like the site's photo frames */}
-        <div className="w-full max-w-md justify-self-center rounded-md border-[6px] border-tjm-yellow bg-tjm-charcoal p-6 text-white shadow-2xl lg:justify-self-end">
-          <h2 className="font-heading text-2xl font-semibold">Book your session</h2>
-          <p className="mt-1 text-sm font-light text-white/70">Sign in to request, manage and cancel training sessions.</p>
-
-          <form
-            className="mt-6"
-            action={async () => {
-              "use server";
-              await signIn("google", { redirectTo: target ?? "/app" });
-            }}
-          >
-            <Button type="submit" size="lg" className="w-full font-heading font-semibold" disabled={!hasGoogle}>
-              Continue with Google
-            </Button>
-            {!hasGoogle && (
-              <p className="mt-2 text-center text-xs text-white/50">Set AUTH_GOOGLE_ID / AUTH_GOOGLE_SECRET to enable Google sign-in.</p>
-            )}
-          </form>
-
-          {isDevLoginEnabled && (
-            <form
-              className="mt-6 space-y-3 rounded-md border border-dashed border-white/25 p-4"
-              action={async (fd: FormData) => {
-                "use server";
-                await signIn("dev", {
-                  email: String(fd.get("email")),
-                  name: String(fd.get("name") ?? ""),
-                  redirectTo: target ?? "/app",
-                });
-              }}
-            >
-              <p className="text-xs font-semibold uppercase tracking-wide text-tjm-lime">Dev login (local only)</p>
-              <div className="space-y-1">
-                <Label htmlFor="email" className="text-white/80">
-                  Email
-                </Label>
-                <Input id="email" name="email" type="email" required placeholder="you@example.com" className="border-white/20 bg-black/30 text-white placeholder:text-white/40" />
-              </div>
-              <div className="space-y-1">
-                <Label htmlFor="name" className="text-white/80">
-                  Name
-                </Label>
-                <Input id="name" name="name" placeholder="Optional" className="border-white/20 bg-black/30 text-white placeholder:text-white/40" />
-              </div>
-              <Button type="submit" variant="outline" className="w-full border-white/30 bg-transparent text-white hover:bg-white/10 hover:text-white">
-                Sign in (dev)
-              </Button>
-              <p className="text-[11px] text-white/50">Use the PT_EMAIL address to sign in as the trainer.</p>
-            </form>
-          )}
+  if (user.role === "TRAINER") {
+    return (
+      <section id="book" className="scroll-mt-16 border-b bg-background">
+        <div className="mx-auto max-w-6xl px-4 py-8">
+          <p className="mb-4 font-heading text-sm font-semibold uppercase tracking-widest text-tjm-orange">Welcome back{firstName ? `, ${firstName}` : ""}</p>
+          <TrainerCalendarView sp={sp} basePath="/" />
         </div>
       </section>
-    </main>
+    );
+  }
+
+  const [locations, upcoming] = await Promise.all([
+    db.location.findMany({ where: { userId: user.id }, orderBy: { createdAt: "asc" }, select: { id: true, label: true, formatted: true } }),
+    db.booking.findMany({
+      where: { clientId: user.id, endAt: { gte: new Date() }, status: { in: ["PENDING", "ACCEPTED"] } },
+      include: { location: true },
+      orderBy: { startAt: "asc" },
+      take: 3,
+    }),
+  ]);
+
+  return (
+    <section id="book" className="scroll-mt-16 border-b bg-background">
+      <div className="mx-auto max-w-6xl px-4 py-8">
+        <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
+          <div>
+            <p className="font-heading text-sm font-semibold uppercase tracking-widest text-tjm-orange">Welcome back{firstName ? `, ${firstName}` : ""}</p>
+            <h1 className="font-heading text-3xl font-bold">Book a session with Toby</h1>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Pick a location and duration, then choose a start time. Sessions need {settings.minNoticeHours} hours&apos; notice.
+            </p>
+          </div>
+          {upcoming.length > 0 && (
+            <div className="rounded-md border bg-card px-4 py-3 text-sm">
+              <div className="mb-1 font-heading text-xs font-semibold uppercase tracking-wide text-muted-foreground">Next up</div>
+              <ul className="space-y-1">
+                {upcoming.map((b) => (
+                  <li key={b.id} className="flex items-center gap-2">
+                    <span>{formatInTimeZone(b.startAt, settings.timezone, "EEE d MMM, HH:mm")}</span>
+                    <span className="text-muted-foreground">· {b.location.label ?? b.location.formatted}</span>
+                    <StatusBadge status={b.status} />
+                  </li>
+                ))}
+              </ul>
+              <Button variant="link" size="sm" className="mt-1 h-auto p-0" nativeButton={false} render={<Link href="/app" />}>
+                All my sessions →
+              </Button>
+            </div>
+          )}
+        </div>
+        <BookingWizard locations={locations} todayKey={dateKey(new Date(), settings.timezone)} />
+      </div>
+    </section>
   );
 }

@@ -23,7 +23,12 @@ export function BookingWizard({ locations, todayKey }: { locations: Location[]; 
   const router = useRouter();
   const [locationId, setLocationId] = useState<string>(locations[0]?.id ?? "");
   const [duration, setDuration] = useState<number>(60);
-  const [weekStart, setWeekStart] = useState<Date>(() => startOfWeek(parseISO(todayKey), { weekStartsOn: 1 }));
+  const [weekStart, setWeekStart] = useState<Date>(() => {
+    const today = parseISO(todayKey);
+    const monday = startOfWeek(today, { weekStartsOn: 1 });
+    // On a weekend the current Mon–Sun week is all in the past; open on next week instead.
+    return today.getDay() === 0 || today.getDay() === 6 ? addDays(monday, 7) : monday;
+  });
   const [result, setResult] = useState<{ key: string; days: DaySlots[] } | null>(null);
   const [selected, setSelected] = useState<{ day: DaySlots; slot: SlotDto } | null>(null);
 

@@ -144,13 +144,4 @@
   .bg-tjm-sunset {
     background-image: linear-gradient(105deg, #c74300 0%, #ff7300 30%, #f1d600 65%, #b7c200 100%);
   }
-  .text-wordmark {
-    @apply font-heading text-xl tracking-tight;
-  }
-  .text-wordmark strong {
-    @apply font-extrabold;
-  }
-  .text-wordmark span {
-    @apply font-light;
-  }
 }

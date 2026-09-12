@@ -22,7 +22,7 @@ function roleForEmail(email: string | null | undefined): Role {
 export const { handlers, auth, signIn, signOut } = NextAuth({
   adapter: PrismaAdapter(db),
   session: { strategy: "jwt" },
-  pages: { signIn: "/" },
+  pages: { signIn: "/signin" },
   providers: [
     Google,
     // Dev-only: sign in as any email without a password. Disabled in production.
