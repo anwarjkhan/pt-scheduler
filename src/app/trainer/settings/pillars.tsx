@@ -39,7 +39,7 @@ function BodyField({ id, defaultValue, rows = 5, placeholder }: { id: string; de
 
 /**
  * The hero chips (Health, Movement, Prehab…). Each has a label shown on the chip
- * and body text shown in a modal when a visitor clicks it.
+ * and body text shown over the hero photo while a visitor hovers it.
  */
 export function Pillars({ pillars, usingFallback }: { pillars: PillarRow[]; usingFallback: boolean }) {
   const [state, action, pending] = useActionState<SettingsState, FormData>(addPillar, {});
@@ -47,11 +47,11 @@ export function Pillars({ pillars, usingFallback }: { pillars: PillarRow[]; usin
   const formKey = state.ok ? pillars.length : -1;
 
   return (
-    <Card className="md:col-span-2">
+    <Card>
       <CardHeader>
         <CardTitle>Hero chips</CardTitle>
         <CardDescription>
-          The keywords across the top of the home page. Visitors click one to read what you mean by it — a chip with no text stays unclickable.
+          The keywords across the top of the home page. Hovering one shows your text over the hero photo — a chip with no text just sits there.
         </CardDescription>
       </CardHeader>
       <CardContent className="grid gap-6 md:grid-cols-2">

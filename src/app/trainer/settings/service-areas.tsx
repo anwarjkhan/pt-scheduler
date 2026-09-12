@@ -28,7 +28,7 @@ export function ServiceAreas({ areas, fallbackMiles }: { areas: ServiceAreaRow[]
   const formKey = state.ok ? areas.length : -1;
 
   return (
-    <Card className="md:col-span-2">
+    <Card>
       <CardHeader>
         <CardTitle>Service areas</CardTitle>
         <CardDescription>
