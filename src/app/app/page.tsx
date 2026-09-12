@@ -30,7 +30,7 @@ export default async function ClientHome({ searchParams }: PageProps<"/app">) {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-semibold">My sessions</h1>
-        <Button render={<Link href="/app/book" />}>Book a session</Button>
+        <Button nativeButton={false} render={<Link href="/app/book" />}>Book a session</Button>
       </div>
 
       {requested && (
