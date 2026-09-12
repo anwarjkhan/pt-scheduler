@@ -107,9 +107,15 @@ export async function updateServiceArea(id: string, _prev: SettingsState, fd: Fo
 
 // ---------- Hero pillars ----------
 
+// Kept in step with PILLAR_BODY_MAX in ./pillars.tsx, which enforces it in the UI.
+const BODY_MAX = 250;
+
 const pillarSchema = z.object({
   label: z.string().min(1, "Label is required").max(40, "Keep the label short — it's a chip in the hero"),
-  body: z.string().min(1, "Add some text to show when the chip is clicked").max(4000),
+  body: z
+    .string()
+    .min(1, "Add some text to show when the chip is hovered")
+    .max(BODY_MAX, `Keep it under ${BODY_MAX} characters — it shows over the hero photo`),
 });
 
 /**

@@ -11,6 +11,32 @@ import { ChevronDown, ChevronUp, Pencil, Trash2 } from "lucide-react";
 
 export type PillarRow = { id: string; label: string; body: string };
 
+/** Matches BODY_MAX in ./actions.ts, which enforces it server-side. */
+export const PILLAR_BODY_MAX = 250;
+
+/** Textarea with a live character count that turns red as the cap approaches. */
+function BodyField({ id, defaultValue, rows = 5, placeholder }: { id: string; defaultValue?: string; rows?: number; placeholder?: string }) {
+  const [value, setValue] = useState(defaultValue ?? "");
+  const left = PILLAR_BODY_MAX - value.length;
+  return (
+    <>
+      <Textarea
+        id={id}
+        name="body"
+        required
+        rows={rows}
+        maxLength={PILLAR_BODY_MAX}
+        placeholder={placeholder}
+        value={value}
+        onChange={(e) => setValue(e.target.value)}
+      />
+      <p className={`text-right text-xs ${left <= 25 ? "text-destructive" : "text-muted-foreground"}`}>
+        {left} character{left === 1 ? "" : "s"} left
+      </p>
+    </>
+  );
+}
+
 /**
  * The hero chips (Health, Movement, Prehab…). Each has a label shown on the chip
  * and body text shown in a modal when a visitor clicks it.
@@ -100,7 +126,7 @@ export function Pillars({ pillars, usingFallback }: { pillars: PillarRow[]; usin
           </div>
           <div className="space-y-1">
             <Label htmlFor="pillar-body">What it means</Label>
-            <Textarea id="pillar-body" name="body" required rows={5} placeholder="Shown when a visitor clicks the chip. Leave a blank line between paragraphs." />
+            <BodyField id="pillar-body" placeholder="Shown over the hero photo when a visitor hovers the chip." />
           </div>
           {state.error && <p className="text-sm text-destructive">{state.error}</p>}
           <Button type="submit" disabled={pending}>
@@ -126,7 +152,7 @@ function EditPillarForm({ pillar, onDone }: { pillar: PillarRow; onDone: () => v
       </div>
       <div className="space-y-1">
         <Label htmlFor={`body-${pillar.id}`}>What it means</Label>
-        <Textarea id={`body-${pillar.id}`} name="body" defaultValue={pillar.body} required rows={6} />
+        <BodyField id={`body-${pillar.id}`} defaultValue={pillar.body} rows={6} />
       </div>
       {state.error && <p className="text-sm text-destructive">{state.error}</p>}
       <div className="flex gap-2">
