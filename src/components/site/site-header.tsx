@@ -5,6 +5,7 @@ import { db } from "@/lib/db";
 import { SITE } from "@/content/site";
 import { AccountMenu } from "./account-menu";
 import { Button } from "@/components/ui/button";
+import { CalendarDays } from "lucide-react";
 
 /**
  * Site-wide header: logo, marketing nav, Register button and the account menu (which offers
@@ -49,6 +50,11 @@ export async function SiteHeader({ calendar, calendarOpen }: { calendar?: React.
           {!user && (
             <Button size="sm" className="font-heading font-semibold" nativeButton={false} render={<Link href="/register" />}>
               Register
+            </Button>
+          )}
+          {user?.role === "CLIENT" && (
+            <Button size="sm" className="font-heading font-semibold" nativeButton={false} render={<Link href="/?cal=1" />}>
+              <CalendarDays className="h-4 w-4" /> Book a session
             </Button>
           )}
           <AccountMenu
