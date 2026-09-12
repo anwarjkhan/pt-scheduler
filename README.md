@@ -11,7 +11,7 @@ The tjmtraining.com marketing site rebuilt in Next.js, with an integrated bookin
 - **`/personal-trainer-*`, `/injury-rehab-*`, `/privacy-policy`** — the site's area and legal pages, rendered from `src/content/pages.json` (text scraped from the live site).
 - Site copy, links, hours and menu items live in `src/content/site.ts`; images in `public/site/`.
 
-**Clients** sign in with Google, save addresses (must be within the trainer's radius — 15 miles by default), and request 30/60/90/120-minute sessions, one-off or weekly. They can cancel up to 24 hours before a session.
+**Clients** sign in with Google, save addresses (must be inside one of the trainer's service areas), and request 30/60/90/120-minute sessions, one-off or weekly. They can cancel up to 24 hours before a session.
 
 **The trainer** sets a weekly availability template and per-date exceptions, reviews requests, and accepts/declines them (whole series at once, with per-occurrence overrides). The calendar draws drive time between consecutive sessions and flags any gap that's too short for the commute.
 
@@ -62,7 +62,7 @@ Evaluations are re-run on the trainer side at accept time and whenever the calen
 
 ## Trainer configuration
 
-- **Settings**: home address, timezone, service radius, commute buffer, slot step, minimum notice.
+- **Settings**: **service areas** (towns/addresses each with their own radius — a client address must fall inside one, by driving distance), home address (start/end of the day), timezone, fallback radius (used only when no areas are defined), commute buffer, slot step, minimum notice.
 - **Availability**: weekly hours (multiple ranges per day) and dated exceptions (day off, partial day, extra hours).
 
 ## Deploying

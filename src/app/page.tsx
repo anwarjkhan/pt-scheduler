@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { auth } from "@/auth";
 import { db } from "@/lib/db";
-import { getSchedulingSettings } from "@/lib/settings";
+import { getCoverageSummary, getSchedulingSettings } from "@/lib/settings";
 import { dateKey } from "@/lib/scheduling";
 import { SiteHeader } from "@/components/site/site-header";
 import { SiteFooter } from "@/components/site/site-footer";
@@ -14,7 +14,7 @@ import { formatInTimeZone } from "date-fns-tz";
 
 export default async function Home({ searchParams }: PageProps<"/">) {
   const sp = await searchParams;
-  const user = (await auth())?.user;
+  const [user, coverage] = await Promise.all([auth().then((s) => s?.user), getCoverageSummary()]);
 
   return (
     <>
@@ -26,7 +26,7 @@ export default async function Home({ searchParams }: PageProps<"/">) {
         <KindWords />
         <TrainingOptions signedIn={!!user} />
         <Partners />
-        <Areas />
+        <Areas covered={coverage.areas} />
         <Contact />
       </main>
       <SiteFooter />
@@ -75,7 +75,7 @@ async function CalendarModalContent({
           </Button>
         </div>
       )}
-      <BookingWizard locations={locations} todayKey={dateKey(new Date(), settings.timezone)} />
+      <BookingWizard locations={locations} todayKey={dateKey(new Date(), settings.timezone)} coverage={(await getCoverageSummary()).text} />
     </div>
   );
 }

@@ -19,7 +19,7 @@ import { AlertTriangle, ChevronLeft, ChevronRight, Loader2 } from "lucide-react"
 
 type Location = { id: string; label: string | null; formatted: string };
 
-export function BookingWizard({ locations, todayKey }: { locations: Location[]; todayKey: string }) {
+export function BookingWizard({ locations, todayKey, coverage }: { locations: Location[]; todayKey: string; coverage?: string }) {
   const router = useRouter();
   const [locationId, setLocationId] = useState<string>(locations[0]?.id ?? "");
   const [duration, setDuration] = useState<number>(60);
@@ -63,7 +63,7 @@ export function BookingWizard({ locations, todayKey }: { locations: Location[]; 
       <Card className="max-w-lg">
         <CardHeader>
           <CardTitle>Where will we train?</CardTitle>
-          <CardDescription>Add a location first — it must be within your trainer&apos;s service area.</CardDescription>
+          <CardDescription>Add a location first. Toby covers: {coverage ?? "his service areas"}.</CardDescription>
         </CardHeader>
         <CardContent>
           <LocationForm onCreated={onCreated} />

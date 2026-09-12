@@ -29,7 +29,7 @@ export function SettingsForm({
       <Card>
         <CardHeader>
           <CardTitle>Home base</CardTitle>
-          <CardDescription>Where you start and end your day. Used for the service radius and first/last commute.</CardDescription>
+          <CardDescription>Where you start and end your day. Used for the first/last commute of the day.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <AddressPicker value={initial.home} label="Home address" />
@@ -58,8 +58,9 @@ export function SettingsForm({
         </CardHeader>
         <CardContent className="grid grid-cols-2 gap-4">
           <div className="space-y-1">
-            <Label htmlFor="maxRadiusMiles">Service radius (miles)</Label>
+            <Label htmlFor="maxRadiusMiles">Fallback radius (miles)</Label>
             <Input id="maxRadiusMiles" name="maxRadiusMiles" type="number" step="0.5" defaultValue={initial.maxRadiusMiles} />
+            <p className="text-xs text-muted-foreground">Around your home address — only used when no service areas are set.</p>
           </div>
           <div className="space-y-1">
             <Label htmlFor="bufferMinutes">Commute buffer (min)</Label>

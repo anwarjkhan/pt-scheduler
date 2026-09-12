@@ -29,3 +29,21 @@ export function estimateCommute(a: LatLng, b: LatLng): { seconds: number; meters
   const seconds = (meters / METERS_PER_MILE / mph) * 3600 + 180;
   return { seconds: Math.round(seconds), meters: Math.round(meters) };
 }
+
+export type AreaLike = { lat: number; lng: number; radiusMiles: number };
+
+/** Roads are never shorter than the crow flies; beyond this multiple of the radius a driving check can't pass. */
+export const ROAD_FACTOR = 1.4;
+
+/**
+ * Areas ordered by straight-line distance, each flagged with whether a driving-distance check is
+ * still worth making. Pure helper so the expensive Distance Matrix calls can be skipped early.
+ */
+export function rankAreas<T extends AreaLike>(loc: LatLng, areas: T[]): { area: T; straightMiles: number; possible: boolean }[] {
+  return areas
+    .map((area) => {
+      const straightMiles = haversineMeters(loc, area) / METERS_PER_MILE;
+      return { area, straightMiles, possible: straightMiles <= area.radiusMiles * ROAD_FACTOR };
+    })
+    .sort((a, b) => a.straightMiles - b.straightMiles);
+}

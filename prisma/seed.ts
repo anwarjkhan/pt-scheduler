@@ -14,13 +14,13 @@ const PT_EMAIL = process.env.PT_EMAIL ?? "trainer@example.com";
 async function main() {
   await db.trainerSettings.upsert({
     where: { id: "singleton" },
-    update: {},
+    update: { homeAddress: "Thames Ditton, Surrey", homeLat: 51.389, homeLng: -0.333 },
     create: {
       id: "singleton",
       timezone: TZ,
-      homeAddress: "1 Trainer Way, London",
-      homeLat: 51.5074,
-      homeLng: -0.1278,
+      homeAddress: "Thames Ditton, Surrey",
+      homeLat: 51.389,
+      homeLng: -0.333,
     },
   });
 
@@ -46,15 +46,25 @@ async function main() {
     create: { email: "bob@example.com", name: "Bob", role: "CLIENT" },
   });
 
+  // Service areas Toby covers (Surrey), each with its own radius.
+  const areaDefs = [
+    { id: "seed-area-weybridge", label: "Weybridge", formatted: "Weybridge, Surrey", lat: 51.371, lng: -0.457, radiusMiles: 5 },
+    { id: "seed-area-esher", label: "Esher", formatted: "Esher, Surrey", lat: 51.369, lng: -0.365, radiusMiles: 5 },
+    { id: "seed-area-thames-ditton", label: "Thames Ditton", formatted: "Thames Ditton, Surrey", lat: 51.389, lng: -0.333, radiusMiles: 4 },
+    { id: "seed-area-richmond", label: "Richmond", formatted: "Richmond, London", lat: 51.461, lng: -0.303, radiusMiles: 3 },
+  ];
+  for (const a of areaDefs) await db.serviceArea.upsert({ where: { id: a.id }, update: {}, create: a });
+
   const aliceHome = await db.location.upsert({
     where: { id: "seed-loc-alice" },
-    update: {},
-    create: { id: "seed-loc-alice", userId: alice.id, label: "Home", formatted: "10 Camden High St, London", lat: 51.539, lng: -0.1426 },
+    update: { formatted: "High Street, Esher", lat: 51.3695, lng: -0.3655, serviceAreaId: "seed-area-esher" },
+    create: { id: "seed-loc-alice", userId: alice.id, label: "Home", formatted: "High Street, Esher", lat: 51.3695, lng: -0.3655, serviceAreaId: "seed-area-esher" },
   });
+  // Bob is in Richmond — far enough from Esher that a 15-minute gap is a tight commute.
   const bobGym = await db.location.upsert({
     where: { id: "seed-loc-bob" },
-    update: {},
-    create: { id: "seed-loc-bob", userId: bob.id, label: "Park", formatted: "Greenwich Park, London", lat: 51.4769, lng: 0.0005 },
+    update: { label: "Park", formatted: "Richmond Park, Richmond", lat: 51.4471, lng: -0.2741, serviceAreaId: "seed-area-richmond" },
+    create: { id: "seed-loc-bob", userId: bob.id, label: "Park", formatted: "Richmond Park, Richmond", lat: 51.4471, lng: -0.2741, serviceAreaId: "seed-area-richmond" },
   });
 
   // Next Monday (or the one after if today is Monday) in trainer tz.

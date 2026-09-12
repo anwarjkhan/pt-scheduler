@@ -57,3 +57,34 @@ export async function saveSettings(_prev: SettingsState, fd: FormData): Promise<
   revalidatePath("/trainer", "layout");
   return { ok: true };
 }
+
+// ---------- Service areas ----------
+
+const areaSchema = z.object({
+  label: z.string().trim().min(1, "Give the area a name").max(60),
+  address: z.string().min(3, "Enter an address"),
+  placeId: z.string().optional(),
+  lat: z.coerce.number().min(-90).max(90),
+  lng: z.coerce.number().min(-180).max(180),
+  radiusMiles: z.coerce.number().min(0.5).max(50),
+});
+
+export async function addServiceArea(_prev: SettingsState, fd: FormData): Promise<SettingsState> {
+  await requireTrainer();
+  const raw = Object.fromEntries(fd) as Record<string, string>;
+  if (!raw.lat || !raw.lng) return { error: "Pick an address from the suggestions (or enter coordinates)." };
+  const parsed = areaSchema.safeParse(raw);
+  if (!parsed.success) return { error: parsed.error.issues.map((i) => i.message).join("; ") };
+  const d = parsed.data;
+  await db.serviceArea.create({
+    data: { label: d.label, formatted: d.address, placeId: d.placeId || null, lat: d.lat, lng: d.lng, radiusMiles: d.radiusMiles },
+  });
+  revalidatePath("/", "layout");
+  return { ok: true };
+}
+
+export async function deleteServiceArea(id: string) {
+  await requireTrainer();
+  await db.serviceArea.delete({ where: { id } });
+  revalidatePath("/", "layout");
+}

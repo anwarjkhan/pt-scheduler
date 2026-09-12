@@ -1,6 +1,6 @@
 import { db } from "@/lib/db";
 import { requireUser } from "@/lib/session";
-import { getTrainerSettings } from "@/lib/settings";
+import { getCoverageSummary } from "@/lib/settings";
 import { LocationForm } from "@/components/location-form";
 import { deleteLocation } from "./actions";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -9,13 +9,13 @@ import { Trash2 } from "lucide-react";
 
 export default async function LocationsPage() {
   const user = await requireUser();
-  const [locations, settings] = await Promise.all([
+  const [locations, coverage] = await Promise.all([
     db.location.findMany({
       where: { userId: user.id },
       include: { _count: { select: { bookings: true } } },
       orderBy: { createdAt: "asc" },
     }),
-    getTrainerSettings(),
+    getCoverageSummary(),
   ]);
 
   return (
@@ -25,7 +25,7 @@ export default async function LocationsPage() {
         <Card>
           <CardHeader>
             <CardTitle>Saved addresses</CardTitle>
-            <CardDescription>Where your sessions take place. Must be within {settings.maxRadiusMiles} miles of your trainer.</CardDescription>
+            <CardDescription>Where your sessions take place. Toby covers: {coverage.text}.</CardDescription>
           </CardHeader>
           <CardContent>
             {locations.length === 0 ? (

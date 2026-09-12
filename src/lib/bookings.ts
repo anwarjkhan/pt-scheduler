@@ -6,6 +6,7 @@ import {
   evaluateSlot,
   getWindowsForDate,
   METERS_PER_MILE,
+  rankAreas,
   zoned,
   type ExistingBooking,
   type LatLng,
@@ -59,10 +60,41 @@ export async function evaluateExistingBooking(
   );
 }
 
-/** Driving distance from home base in miles, or null when no home is configured. */
-export async function milesFromHome(loc: LatLng): Promise<{ miles: number; estimated: boolean } | null> {
-  const s = toSchedulingSettings(await getTrainerSettings());
-  if (!s.home) return null;
-  const c = await getCommute(s.home, loc);
-  return { miles: c.meters / METERS_PER_MILE, estimated: c.estimated };
+export type AreaCheck =
+  | { ok: true; areaId: string | null; label: string; miles: number; estimated: boolean }
+  | { ok: false; nearest: { label: string; miles: number; radiusMiles: number } | null; estimated: boolean };
+
+/**
+ * Is a client address bookable? Inside any ServiceArea (driving distance ≤ its radius), or —
+ * when no areas are defined — within `maxRadiusMiles` of the home base.
+ */
+export async function checkServiceArea(loc: LatLng): Promise<AreaCheck> {
+  const areas = await db.serviceArea.findMany();
+
+  if (areas.length === 0) {
+    const s = toSchedulingSettings(await getTrainerSettings());
+    if (!s.home) return { ok: true, areaId: null, label: "anywhere", miles: 0, estimated: false }; // nothing configured yet
+    const c = await getCommute(s.home, loc);
+    const miles = c.meters / METERS_PER_MILE;
+    return miles <= s.maxRadiusMiles
+      ? { ok: true, areaId: null, label: "home", miles, estimated: c.estimated }
+      : { ok: false, nearest: { label: "Toby's base", miles, radiusMiles: s.maxRadiusMiles }, estimated: c.estimated };
+  }
+
+  const ranked = rankAreas(loc, areas);
+  let nearest: { label: string; miles: number; radiusMiles: number } | null = null;
+  let estimated = false;
+  for (const r of ranked) {
+    // Straight-line already too far → skip the Distance Matrix call.
+    if (!r.possible) {
+      if (!nearest) nearest = { label: r.area.label, miles: r.straightMiles, radiusMiles: r.area.radiusMiles };
+      continue;
+    }
+    const c = await getCommute(r.area, loc);
+    const miles = c.meters / METERS_PER_MILE;
+    estimated ||= c.estimated;
+    if (miles <= r.area.radiusMiles) return { ok: true, areaId: r.area.id, label: r.area.label, miles, estimated };
+    if (!nearest || miles < nearest.miles) nearest = { label: r.area.label, miles, radiusMiles: r.area.radiusMiles };
+  }
+  return { ok: false, nearest, estimated };
 }

@@ -6,6 +6,7 @@ import {
   generateSlots,
   getWindowsForDate,
   haversineMeters,
+  rankAreas,
   timeKey,
   zoned,
   type CommuteFn,
@@ -250,5 +251,23 @@ describe("geo", () => {
     const d = haversineMeters({ lat: 51.5074, lng: -0.1278 }, { lat: 50.8225, lng: -0.1372 });
     expect(d).toBeGreaterThan(75_000);
     expect(d).toBeLessThan(78_000);
+  });
+});
+
+describe("rankAreas", () => {
+  const areas = [
+    { label: "Weybridge", lat: 51.371, lng: -0.457, radiusMiles: 5 },
+    { label: "Richmond", lat: 51.461, lng: -0.303, radiusMiles: 3 },
+  ];
+  it("orders by straight-line distance and flags impossible ones", () => {
+    // Esher-ish point: ~4 mi from Weybridge, ~8 mi from Richmond
+    const r = rankAreas({ lat: 51.369, lng: -0.365 }, areas);
+    expect(r[0].area.label).toBe("Weybridge");
+    expect(r[0].possible).toBe(true);
+    expect(r[1].area.label).toBe("Richmond");
+    expect(r[1].possible).toBe(false);
+  });
+  it("returns empty for no areas", () => {
+    expect(rankAreas({ lat: 0, lng: 0 }, [])).toEqual([]);
   });
 });

@@ -34,3 +34,13 @@ export async function getAvailability() {
 export async function getSchedulingSettings() {
   return toSchedulingSettings(await getTrainerSettings());
 }
+
+/** Human-readable coverage summary for client-facing copy, e.g. "Weybridge (5 mi), Esher (4 mi)". */
+export async function getCoverageSummary(): Promise<{ areas: { label: string; radiusMiles: number }[]; text: string }> {
+  const areas = await db.serviceArea.findMany({ orderBy: { createdAt: "asc" }, select: { label: true, radiusMiles: true } });
+  if (areas.length === 0) {
+    const s = await getTrainerSettings();
+    return { areas, text: `within ${s.maxRadiusMiles} miles of Toby's base` };
+  }
+  return { areas, text: areas.map((a) => `${a.label} (${a.radiusMiles} mi)`).join(", ") };
+}

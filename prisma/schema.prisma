@@ -80,6 +80,21 @@ model TrainerSettings {
   minNoticeHours  Int     @default(24)
 }
 
+/// Towns/areas the trainer covers, each with its own radius. When none exist, TrainerSettings.maxRadiusMiles
+/// around the home base applies instead.
+model ServiceArea {
+  id          String   @id @default(cuid())
+  label       String
+  formatted   String
+  placeId     String?
+  lat         Float
+  lng         Float
+  radiusMiles Float    @default(5)
+  createdAt   DateTime @default(now())
+
+  locations Location[]
+}
+
 /// Weekly template. Multiple ranges per weekday allowed. Times are "HH:mm" in trainer tz.
 model AvailabilityRule {
   id        String @id @default(cuid())
@@ -114,6 +129,9 @@ model Location {
   lng       Float
   createdAt DateTime @default(now())
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  /// Which service area accepted this address (null = fallback home radius or pre-areas data).
+  serviceAreaId String?
+  serviceArea   ServiceArea? @relation(fields: [serviceAreaId], references: [id], onDelete: SetNull)
 
   bookings Booking[]
   series   BookingSeries[]

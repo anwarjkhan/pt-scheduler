@@ -143,13 +143,22 @@ export function Partners() {
   );
 }
 
-export function Areas() {
+export function Areas({ covered = [] }: { covered?: { label: string; radiusMiles: number }[] }) {
   return (
     <section className="bg-white">
       <div className="mx-auto grid max-w-6xl items-center gap-10 px-6 py-16 md:grid-cols-[1fr_auto]">
         <div>
           <p className="text-lg font-light leading-relaxed">{SITE.areasBlurb}</p>
           <p className="mt-3 font-heading text-xl font-semibold">{SITE.areasList}</p>
+          {covered.length > 0 && (
+            <ul className="mt-4 flex flex-wrap gap-2" aria-label="Areas currently accepting bookings">
+              {covered.map((a) => (
+                <li key={a.label} className="rounded-md bg-tjm-charcoal px-3 py-1 font-heading text-sm font-semibold text-tjm-yellow">
+                  {a.label} <span className="font-normal text-white/70">· {a.radiusMiles} mi</span>
+                </li>
+              ))}
+            </ul>
+          )}
           <div className="mt-8 grid gap-6 sm:grid-cols-2">
             <div>
               <h3 className="font-heading text-sm font-semibold uppercase tracking-widest text-tjm-orange">Areas We Cover</h3>

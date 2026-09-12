@@ -4,8 +4,7 @@ import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import { requireUser } from "@/lib/session";
-import { milesFromHome } from "@/lib/bookings";
-import { getTrainerSettings } from "@/lib/settings";
+import { checkServiceArea } from "@/lib/bookings";
 
 const schema = z.object({
   label: z.string().max(60).optional(),
@@ -25,16 +24,26 @@ export async function addLocation(_p: LocationState, fd: FormData): Promise<Loca
   if (!parsed.success) return { error: parsed.error.issues.map((i) => i.message).join("; ") };
   const d = parsed.data;
 
-  const distance = await milesFromHome({ lat: d.lat, lng: d.lng });
-  const settings = await getTrainerSettings();
-  if (distance && distance.miles > settings.maxRadiusMiles) {
+  const check = await checkServiceArea({ lat: d.lat, lng: d.lng });
+  if (!check.ok) {
+    const n = check.nearest;
     return {
-      error: `That address is about ${distance.miles.toFixed(1)} miles away — outside the ${settings.maxRadiusMiles}-mile service area.`,
+      error: n
+        ? `That address is about ${n.miles.toFixed(1)} miles from ${n.label} (Toby covers ${n.radiusMiles} miles around it). Get in touch if you'd like to check.`
+        : "That address is outside the areas Toby covers.",
     };
   }
 
   const loc = await db.location.create({
-    data: { userId: user.id, label: d.label || null, formatted: d.address, placeId: d.placeId || null, lat: d.lat, lng: d.lng },
+    data: {
+      userId: user.id,
+      label: d.label || null,
+      formatted: d.address,
+      placeId: d.placeId || null,
+      lat: d.lat,
+      lng: d.lng,
+      serviceAreaId: check.areaId,
+    },
   });
   revalidatePath("/app", "layout");
   return { ok: true, id: loc.id };
