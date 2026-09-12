@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { ContactForm } from "./contact-form";
 import { Reveal } from "./reveal";
 import { PillarChips } from "./pillar-chips";
+import { TestimonialCarousel } from "./testimonial-carousel";
 import type { Pillar } from "@/lib/pillars";
 
 /** Where "Book a session" CTAs go: the calendar modal when signed in, otherwise registration. */
@@ -92,16 +93,9 @@ export function KindWords() {
         <Reveal as="h2" className="font-heading text-3xl font-bold sm:text-5xl">
           “{SITE.kindWords.heading}”
         </Reveal>
-        <div className="mt-10 space-y-8">
-          {SITE.kindWords.testimonials.map((t, i) => (
-            <Reveal key={t.name} as="blockquote" delay={i * 120} className="mx-auto max-w-2xl">
-              <p className="text-xl font-light leading-relaxed">“{t.quote}”</p>
-              <footer className="mt-4 font-heading font-semibold text-tjm-yellow">
-                {t.name} <span className="font-normal text-white/70">· {t.detail}</span>
-              </footer>
-            </Reveal>
-          ))}
-        </div>
+        <Reveal className="mt-10">
+          <TestimonialCarousel items={SITE.kindWords.testimonials} />
+        </Reveal>
       </div>
     </section>
   );

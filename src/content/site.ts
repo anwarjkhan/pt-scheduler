@@ -51,6 +51,21 @@ export const SITE = {
         name: "Stephen Menzies",
         detail: "Knee & Lower Back",
       },
+      {
+        quote: "I feel like I've got someone taking care of me while at the same time encouraging me to work to my maximum potential!",
+        name: "Juan Monteroz",
+        detail: "Neck, Shoulders & Hips",
+      },
+      {
+        quote: "Toby is so good at what he does. Based on extensive knowledge of the anatomy, we managed to avoid surgery entirely. I highly recommend him to you",
+        name: "Elaine Gibson Bolton",
+        detail: "Leg",
+      },
+      {
+        quote: "I am so pleased Toby was recommended to me - he has truly worked miracles. He seems to be able to get to the heart of the problem and listens and adapts his programmes sensitively",
+        name: "Ida Forster",
+        detail: "Leg",
+      },
     ],
   },
   options: [
