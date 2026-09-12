@@ -93,6 +93,7 @@ export async function TrainerCalendarView({ sp, basePath = "/trainer" }: { sp: P
         <span><span className="mr-1 inline-block h-3 w-3 rounded-sm border border-[#166b3a] bg-tjm-confirm align-middle" />Confirmed</span>
         <span><span className="mr-1 inline-block h-3 w-3 rounded-sm bg-tjm-charcoal/15 align-middle" />Drive time</span>
         <span><span className="mr-1 inline-block h-3 w-3 rounded-sm bg-destructive/30 align-middle" />Not enough travel time</span>
+        <span><span className="mr-1 inline-block h-3 w-3 rounded-sm border border-dashed border-destructive/60 bg-destructive/10 align-middle" />Cancelled</span>
         <span><span className="mr-1 inline-block h-3 w-3 rounded-sm bg-muted align-middle" />Outside working hours</span>
         <span><span className="mr-1 inline-block h-3 w-3 rounded-sm bg-exception align-middle" />Day off / blocked</span>
       </div>
@@ -119,7 +120,7 @@ async function MonthView({
   const end = zoned(format(addDays(parseISO(dates[dates.length - 1]), 1), "yyyy-MM-dd"), "00:00", tz);
   const [bookings, { rules, exceptions }, pendingCount] = await Promise.all([
     db.booking.findMany({
-      where: { startAt: { gte: start, lt: end }, status: { in: ["PENDING", "ACCEPTED"] } },
+      where: { startAt: { gte: start, lt: end }, status: { in: ["PENDING", "ACCEPTED", "CANCELLED_BY_CLIENT", "CANCELLED_BY_TRAINER"] } },
       select: { id: true, startAt: true, status: true, client: { select: { name: true, email: true } } },
       orderBy: { startAt: "asc" },
     }),

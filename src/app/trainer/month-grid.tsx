@@ -9,7 +9,10 @@ export type MonthBooking = { id: string; startAt: Date; status: string; clientNa
 const CHIP: Record<string, string> = {
   PENDING: "border-tjm-orange bg-[#fff1e6] text-[#7a3600]",
   ACCEPTED: "border-[#166b3a] bg-tjm-confirm text-white",
+  CANCELLED_BY_CLIENT: "border-dashed border-destructive/60 bg-destructive/10 text-destructive line-through",
+  CANCELLED_BY_TRAINER: "border-dashed border-destructive/60 bg-destructive/10 text-destructive line-through",
 };
+const SHOWN = ["PENDING", "ACCEPTED", "CANCELLED_BY_CLIENT", "CANCELLED_BY_TRAINER"];
 
 /** Trainer month overview: sessions per day as status chips; each day links to its day view. */
 export function TrainerMonthGrid({
@@ -51,7 +54,9 @@ export function TrainerMonthGrid({
       <div className="grid grid-cols-7">
         {dates.map((date) => {
           const inMonth = date.startsWith(monthKey);
-          const list = (byDate.get(date) ?? []).filter((b) => ["PENDING", "ACCEPTED"].includes(b.status));
+          const all = byDate.get(date) ?? [];
+          const list = all.filter((b) => SHOWN.includes(b.status));
+          const live = all.filter((b) => ["PENDING", "ACCEPTED"].includes(b.status));
           const closed = closedDates.has(date);
           const note = exceptionNotes.get(date);
           return (
@@ -69,7 +74,7 @@ export function TrainerMonthGrid({
               <div className="flex items-baseline justify-between">
                 <span className="font-heading text-sm font-semibold">{format(parseISO(date), "d")}</span>
                 {closed && inMonth && !note && <span className="text-[10px] text-muted-foreground">Off</span>}
-                {!closed && !note && list.length > 0 && <span className="text-[10px] text-muted-foreground">{list.length}</span>}
+                {!closed && !note && live.length > 0 && <span className="text-[10px] text-muted-foreground">{live.length}</span>}
               </div>
               {note && inMonth && <span className="truncate rounded-sm bg-background/80 px-1 text-[10px] text-muted-foreground">{note}</span>}
               {list.slice(0, 3).map((b) => (
