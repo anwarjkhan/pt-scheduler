@@ -104,16 +104,78 @@ export const SITE = {
   ],
 };
 
-/** Links shown in the signed-in user menu, by role (the calendar item is added by the menu itself). */
-export const USER_MENU = {
+export type MenuIcon =
+  | "calendar"
+  | "list"
+  | "pin"
+  | "inbox"
+  | "clock"
+  | "users"
+  | "settings"
+  | "user"
+  | "bell"
+  | "help"
+  | "shield";
+
+export type MenuItem = {
+  label: string;
+  /** "calendar" opens the in-app calendar modal instead of navigating. */
+  href: string | "calendar";
+  icon: MenuIcon;
+  badge?: "upcoming" | "pending";
+};
+export type MenuGroup = { group: string; items: MenuItem[] };
+
+/** Account menu (top-right avatar), by role. Sign out is appended by the component. */
+export const USER_MENU: Record<"CLIENT" | "TRAINER", MenuGroup[]> = {
   CLIENT: [
-    { label: "My sessions", href: "/app" },
-    { label: "My locations", href: "/app/locations" },
+    {
+      group: "Booking",
+      items: [
+        { label: "Book a session", href: "calendar", icon: "calendar" },
+        { label: "My sessions", href: "/app", icon: "list", badge: "upcoming" },
+        { label: "My locations", href: "/app/locations", icon: "pin" },
+      ],
+    },
+    {
+      group: "Account",
+      items: [
+        { label: "My profile", href: "/account", icon: "user" },
+        { label: "Notifications", href: "/account#notifications", icon: "bell" },
+      ],
+    },
+    {
+      group: "Support",
+      items: [
+        { label: "Help & contact", href: "/#contact", icon: "help" },
+        { label: "Privacy policy", href: "/privacy-policy", icon: "shield" },
+      ],
+    },
   ],
   TRAINER: [
-    { label: "Requests", href: "/trainer/requests" },
-    { label: "Availability", href: "/trainer/availability" },
-    { label: "Clients", href: "/trainer/clients" },
-    { label: "Settings", href: "/trainer/settings" },
+    {
+      group: "Diary",
+      items: [
+        { label: "Calendar", href: "calendar", icon: "calendar" },
+        { label: "Requests", href: "/trainer/requests", icon: "inbox", badge: "pending" },
+        { label: "Availability", href: "/trainer/availability", icon: "clock" },
+        { label: "Clients", href: "/trainer/clients", icon: "users" },
+        { label: "Settings", href: "/trainer/settings", icon: "settings" },
+      ],
+    },
+    {
+      group: "Account",
+      items: [
+        { label: "My profile", href: "/account", icon: "user" },
+        { label: "Notifications", href: "/account#notifications", icon: "bell" },
+      ],
+    },
+    {
+      group: "Support",
+      items: [
+        { label: "Help & contact", href: "/#contact", icon: "help" },
+        { label: "Privacy policy", href: "/privacy-policy", icon: "shield" },
+      ],
+    },
   ],
-} as const;
+};

@@ -1,22 +1,33 @@
 import Image from "next/image";
 import Link from "next/link";
-import { auth, signOut } from "@/auth";
+import { auth, signIn, signOut, isDevLoginEnabled } from "@/auth";
+import { db } from "@/lib/db";
 import { SITE } from "@/content/site";
-import { UserMenu } from "./user-menu";
+import { AccountMenu } from "./account-menu";
 import { Button } from "@/components/ui/button";
 
 /**
- * Site-wide header: logo, marketing nav, and Sign in / Register or the signed-in user menu.
- * `calendar` (server-rendered booking wizard / trainer calendar) is passed by the home page so the
- * user menu can show it in a modal; other pages navigate home to open it.
+ * Site-wide header: logo, marketing nav, Register button and the account menu (which offers
+ * sign-in when signed out). `calendar` is passed by the home page so the menu can show the
+ * booking calendar in a modal; other pages navigate home to open it.
  */
 export async function SiteHeader({ calendar, calendarOpen }: { calendar?: React.ReactNode; calendarOpen?: boolean } = {}) {
   const session = await auth();
   const user = session?.user;
 
+  const badges = user
+    ? user.role === "TRAINER"
+      ? { pending: await db.booking.count({ where: { status: "PENDING", startAt: { gte: new Date() } } }) }
+      : { upcoming: await db.booking.count({ where: { clientId: user.id, status: "ACCEPTED", startAt: { gte: new Date() } } }) }
+    : {};
+
   async function doSignOut() {
     "use server";
     await signOut({ redirectTo: "/" });
+  }
+  async function doSignIn(provider: "google" | "apple") {
+    "use server";
+    await signIn(provider, { redirectTo: "/" });
   }
 
   return (
@@ -35,23 +46,20 @@ export async function SiteHeader({ calendar, calendarOpen }: { calendar?: React.
         </nav>
 
         <div className="ml-auto flex items-center gap-2">
-          {user ? (
-            <UserMenu
-              user={{ name: user.name, email: user.email, image: user.image, role: user.role }}
-              calendar={calendar}
-              calendarOpen={calendarOpen}
-              signOutAction={doSignOut}
-            />
-          ) : (
-            <>
-              <Button variant="ghost" size="sm" className="text-white hover:bg-white/10 hover:text-white" nativeButton={false} render={<Link href="/signin" />}>
-                Sign in
-              </Button>
-              <Button size="sm" className="font-heading font-semibold" nativeButton={false} render={<Link href="/register" />}>
-                Register
-              </Button>
-            </>
+          {!user && (
+            <Button size="sm" className="font-heading font-semibold" nativeButton={false} render={<Link href="/register" />}>
+              Register
+            </Button>
           )}
+          <AccountMenu
+            user={user ? { name: user.name, email: user.email, image: user.image, role: user.role } : null}
+            badges={badges}
+            calendar={calendar}
+            calendarOpen={calendarOpen}
+            providers={{ google: !!process.env.AUTH_GOOGLE_ID, apple: !!process.env.AUTH_APPLE_ID, dev: isDevLoginEnabled }}
+            signInAction={doSignIn}
+            signOutAction={doSignOut}
+          />
         </div>
       </div>
       <nav className="flex gap-1 overflow-x-auto border-t border-white/10 px-2 py-1 md:hidden">

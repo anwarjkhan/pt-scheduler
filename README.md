@@ -4,8 +4,9 @@ The tjmtraining.com marketing site rebuilt in Next.js, with an integrated bookin
 
 ## How the site and the booking app fit together
 
-- **`/`** — the marketing home page (hero, Meet Toby, Kind words, Training Options, Partners, Areas, Contact). Signed-out visitors see **Sign in** / **Register** in the header. Once signed in, the header shows a **user avatar with a dropdown** (client: Book a session, My sessions, My locations; trainer: Calendar, Requests, Availability, Clients, Settings). The first item opens the **calendar in a modal** — the booking wizard for clients, the week calendar for the trainer. `/?cal=1` opens it directly (used by the site's "Book a session" buttons when signed in).
+- **`/`** — the marketing home page (hero, Meet Toby, Kind words, Training Options, Partners, Areas, Contact). Signed-out visitors see **Register** and a person icon that opens a sign-in panel (Google / Apple). Once signed in, the icon becomes an **avatar with the account menu** — client: Book a session, My sessions (badge), My locations, My profile, Notifications, Help, Privacy, Sign out; trainer: Calendar, Requests (pending badge), Availability, Clients, Settings, My profile, Notifications, Help, Privacy, Sign out. Menu contents live in `USER_MENU` in `src/content/site.ts`. The first item opens the **calendar in a modal** — the booking wizard for clients, the week calendar for the trainer. `/?cal=1` opens it directly (used by the site's "Book a session" buttons when signed in).
 - **`/signin`, `/register`** — Google sign-in (same flow; Register just sets expectations for new clients). A dev login is available locally with `DEV_LOGIN=true`.
+- **`/account`** — profile (name, phone, emergency contact, notes for Toby) and notification preferences (stored; no emails sent yet).
 - **`/app/*`** (client) and **`/trainer/*`** (trainer) — the deeper booking-app pages, wrapped in the site header/footer with a charcoal sub-nav.
 - **`/personal-trainer-*`, `/injury-rehab-*`, `/privacy-policy`** — the site's area and legal pages, rendered from `src/content/pages.json` (text scraped from the live site).
 - Site copy, links, hours and menu items live in `src/content/site.ts`; images in `public/site/`.
@@ -35,6 +36,7 @@ npm run dev
 | `DATABASE_URL` | `file:./dev.db` locally. For Postgres, set the URL **and** change `provider` in `prisma/schema.prisma` to `postgresql`, then `npx prisma migrate dev`. |
 | `AUTH_SECRET` | `npx auth secret` |
 | `AUTH_GOOGLE_ID` / `AUTH_GOOGLE_SECRET` | OAuth 2.0 client from Google Cloud. Redirect URI: `http://localhost:3000/api/auth/callback/google` (and your production URL). |
+| `AUTH_APPLE_ID` / `AUTH_APPLE_SECRET` | Optional Sign in with Apple. `AUTH_APPLE_ID` is your Services ID; `AUTH_APPLE_SECRET` is the client-secret JWT built from your Team ID, Key ID and `.p8` key (Auth.js docs: providers/apple). The Apple button is disabled until both are set. |
 | `PT_EMAIL` | The Google account that becomes the trainer on first sign-in. Everyone else is a client. |
 | `GOOGLE_MAPS_SERVER_KEY` | Enable **Distance Matrix API** and **Geocoding API**. Restrict by IP. |
 | `NEXT_PUBLIC_GOOGLE_MAPS_BROWSER_KEY` | Enable **Maps JavaScript API** and **Places API**. Restrict by HTTP referrer. |

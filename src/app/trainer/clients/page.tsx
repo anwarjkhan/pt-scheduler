@@ -31,6 +31,20 @@ export default async function ClientsPage() {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-3 text-sm">
+              {(c.emergencyContact || c.notes) && (
+                <div className="rounded-md border border-tjm-yellow/60 bg-accent/40 p-3">
+                  {c.emergencyContact && (
+                    <div>
+                      <span className="font-medium">Emergency contact:</span> {c.emergencyContact}
+                    </div>
+                  )}
+                  {c.notes && (
+                    <div className={c.emergencyContact ? "mt-1" : ""}>
+                      <span className="font-medium">Notes:</span> {c.notes}
+                    </div>
+                  )}
+                </div>
+              )}
               {c.locations.length > 0 && (
                 <div>
                   <div className="mb-1 font-medium">Locations</div>

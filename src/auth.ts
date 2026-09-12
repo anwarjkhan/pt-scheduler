@@ -1,5 +1,6 @@
 import NextAuth, { type DefaultSession } from "next-auth";
 import Google from "next-auth/providers/google";
+import Apple from "next-auth/providers/apple";
 import Credentials from "next-auth/providers/credentials";
 import { PrismaAdapter } from "@auth/prisma-adapter";
 import { db } from "@/lib/db";
@@ -25,6 +26,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   pages: { signIn: "/signin" },
   providers: [
     Google,
+    // Apple only when configured (needs AUTH_APPLE_ID + AUTH_APPLE_SECRET client-secret JWT).
+    ...(process.env.AUTH_APPLE_ID && process.env.AUTH_APPLE_SECRET ? [Apple] : []),
     // Dev-only: sign in as any email without a password. Disabled in production.
     ...(devLoginEnabled
       ? [
@@ -35,10 +38,11 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             async authorize(creds) {
               const email = String(creds?.email ?? "").trim().toLowerCase();
               if (!email) return null;
-              const name = String(creds?.name ?? email.split("@")[0]);
+              const typedName = String(creds?.name ?? "").trim();
+              const name = typedName || email.split("@")[0];
               const user = await db.user.upsert({
                 where: { email },
-                update: {},
+                update: typedName ? { name: typedName } : {},
                 create: { email, name, role: roleForEmail(email) },
               });
               return user;

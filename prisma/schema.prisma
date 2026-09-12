@@ -18,6 +18,11 @@ model User {
   phone         String?
   role          String    @default("CLIENT") // CLIENT | TRAINER
   createdAt     DateTime  @default(now())
+  // Profile (editable at /account)
+  emergencyContact String?
+  notes            String? // parking, access, health notes for the trainer
+  notifyEmail      Boolean @default(true) // booking status emails (stored only — no mail service yet)
+  notifyReminders  Boolean @default(true) // 24h session reminders
 
   accounts  Account[]
   sessions  Session[]
