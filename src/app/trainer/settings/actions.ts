@@ -4,6 +4,7 @@ import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import { requireTrainer } from "@/lib/session";
+import { SITE } from "@/content/site";
 
 const schema = z.object({
   timezone: z.string().min(1),
@@ -102,4 +103,73 @@ export async function updateServiceArea(id: string, _prev: SettingsState, fd: Fo
   });
   revalidatePath("/", "layout");
   return { ok: true };
+}
+
+// ---------- Hero pillars ----------
+
+const pillarSchema = z.object({
+  label: z.string().min(1, "Label is required").max(40, "Keep the label short — it's a chip in the hero"),
+  body: z.string().min(1, "Add some text to show when the chip is clicked").max(4000),
+});
+
+/**
+ * The site falls back to the labels in site.ts while the table is empty. The
+ * first edit has to materialise those rows, or saving one pillar would make the
+ * other six vanish from the hero.
+ */
+async function ensurePillarsSeeded() {
+  if ((await db.pillar.count()) > 0) return;
+  await db.pillar.createMany({
+    data: SITE.hero.pillars.map((label, i) => ({ label, body: "", sortOrder: i })),
+  });
+}
+
+export async function addPillar(_prev: SettingsState, fd: FormData): Promise<SettingsState> {
+  await requireTrainer();
+  const parsed = pillarSchema.safeParse(Object.fromEntries(fd));
+  if (!parsed.success) return { error: parsed.error.issues.map((i) => i.message).join("; ") };
+  await ensurePillarsSeeded();
+  const last = await db.pillar.findFirst({ orderBy: { sortOrder: "desc" }, select: { sortOrder: true } });
+  await db.pillar.create({ data: { ...parsed.data, sortOrder: (last?.sortOrder ?? -1) + 1 } });
+  revalidatePath("/", "layout");
+  return { ok: true };
+}
+
+export async function updatePillar(id: string, _prev: SettingsState, fd: FormData): Promise<SettingsState> {
+  await requireTrainer();
+  const parsed = pillarSchema.safeParse(Object.fromEntries(fd));
+  if (!parsed.success) return { error: parsed.error.issues.map((i) => i.message).join("; ") };
+
+  // Editing one of the site.ts fallbacks: materialise the set first, then find
+  // the row by the label the fallback id carries.
+  if (id.startsWith("fallback-")) {
+    await ensurePillarsSeeded();
+    const label = id.slice("fallback-".length);
+    const row = await db.pillar.findFirst({ where: { label }, select: { id: true } });
+    if (!row) return { error: "That chip no longer exists — reload the page." };
+    id = row.id;
+  }
+
+  await db.pillar.update({ where: { id }, data: parsed.data });
+  revalidatePath("/", "layout");
+  return { ok: true };
+}
+
+export async function deletePillar(id: string) {
+  await requireTrainer();
+  await db.pillar.delete({ where: { id } });
+  revalidatePath("/", "layout");
+}
+
+/** Move one pillar up or down in the hero. */
+export async function movePillar(id: string, direction: "up" | "down") {
+  await requireTrainer();
+  const all = await db.pillar.findMany({ orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }], select: { id: true } });
+  const i = all.findIndex((p) => p.id === id);
+  const j = direction === "up" ? i - 1 : i + 1;
+  if (i === -1 || j < 0 || j >= all.length) return;
+  [all[i], all[j]] = [all[j], all[i]];
+  // Rewrite the whole order so gaps and ties from earlier edits can't accumulate.
+  await db.$transaction(all.map((p, k) => db.pillar.update({ where: { id: p.id }, data: { sortOrder: k } })));
+  revalidatePath("/", "layout");
 }

@@ -2,6 +2,7 @@ import Link from "next/link";
 import { auth } from "@/auth";
 import { db } from "@/lib/db";
 import { getCoverageSummary, getSchedulingSettings } from "@/lib/settings";
+import { getPillars } from "@/lib/pillars";
 import { dateKey } from "@/lib/scheduling";
 import { SiteHeader } from "@/components/site/site-header";
 import { SiteFooter } from "@/components/site/site-footer";
@@ -14,13 +15,13 @@ import { formatInTimeZone } from "date-fns-tz";
 
 export default async function Home({ searchParams }: PageProps<"/">) {
   const sp = await searchParams;
-  const [user, coverage] = await Promise.all([auth().then((s) => s?.user), getCoverageSummary()]);
+  const [user, coverage, pillars] = await Promise.all([auth().then((s) => s?.user), getCoverageSummary(), getPillars()]);
 
   return (
     <>
       <SiteHeader calendar={user ? <CalendarModalContent user={user} sp={sp} /> : undefined} calendarOpen={sp.cal === "1"} />
       <main className="flex-1">
-        <Hero signedIn={!!user} />
+        <Hero signedIn={!!user} pillars={pillars} />
         <Intro />
         <MeetToby />
         <KindWords />

@@ -5,12 +5,14 @@ import { SITE } from "@/content/site";
 import { Button } from "@/components/ui/button";
 import { ContactForm } from "./contact-form";
 import { Reveal } from "./reveal";
+import { PillarChips } from "./pillar-chips";
+import type { Pillar } from "@/lib/pillars";
 
 /** Where "Book a session" CTAs go: the calendar modal when signed in, otherwise registration. */
 const bookHref = (signedIn: boolean) => (signedIn ? "/?cal=1" : "/register");
 
 /** Full-bleed running-legs photo with the headline, as on tjmtraining.com. */
-export function Hero({ signedIn = false }: { signedIn?: boolean }) {
+export function Hero({ signedIn = false, pillars }: { signedIn?: boolean; pillars: Pillar[] }) {
   return (
     <section className="relative isolate min-h-[70vh] overflow-hidden text-white">
       <Image src="/site/hero-run.jpg" alt="" fill priority className="animate-kenburns -z-20 object-cover" sizes="100vw" />
@@ -20,18 +22,8 @@ export function Hero({ signedIn = false }: { signedIn?: boolean }) {
         <p className="animate-rise mt-6 max-w-2xl text-lg font-light leading-relaxed drop-shadow sm:text-xl" style={{ "--rise-delay": "120ms" } as React.CSSProperties}>
           {SITE.hero.body}
         </p>
-        <ul className="mt-8 flex flex-wrap gap-2">
-          {SITE.hero.pillars.map((p, i) => (
-            <li
-              key={p}
-              className="animate-rise rounded-md bg-black/45 px-3 py-1 font-heading text-sm font-semibold text-tjm-yellow backdrop-blur-sm"
-              style={{ "--rise-delay": `${240 + i * 60}ms` } as React.CSSProperties}
-            >
-              {p}
-            </li>
-          ))}
-        </ul>
-        <div className="animate-rise mt-10 flex flex-wrap gap-3" style={{ "--rise-delay": `${240 + SITE.hero.pillars.length * 60 + 80}ms` } as React.CSSProperties}>
+        <PillarChips pillars={pillars} />
+        <div className="animate-rise mt-10 flex flex-wrap gap-3" style={{ "--rise-delay": `${240 + pillars.length * 60 + 80}ms` } as React.CSSProperties}>
           <Button size="lg" className="font-heading font-semibold" nativeButton={false} render={<Link href={bookHref(signedIn)} />}>
             Book a session
           </Button>

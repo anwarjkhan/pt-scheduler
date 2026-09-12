@@ -95,6 +95,18 @@ model ServiceArea {
   locations Location[]
 }
 
+/// The hero chips on the marketing site (Health, Movement, Prehab…). Each opens a
+/// modal explaining what Toby means by it. Trainer-editable at /trainer/content.
+model Pillar {
+  id        String   @id @default(cuid())
+  label     String
+  body      String
+  /// Manual ordering in the hero; lower first.
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
 /// Repeating exception: e.g. every 2nd Wednesday 12:00–14:00 unavailable, from startDate until endDate.
 /// Expanded into virtual AvailabilityException entries at read time (see getAvailability).
 model RecurringException {
