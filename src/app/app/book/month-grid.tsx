@@ -92,7 +92,7 @@ export function ClientMonthGrid({
                     key={m.time}
                     className={cn(
                       "w-full truncate rounded-sm border px-1 font-heading text-[10px] font-semibold",
-                      m.status === "ACCEPTED" ? "border-tjm-lime bg-[#f5f8d6] text-[#3e4300]" : "border-tjm-orange bg-[#fff1e6] text-[#7a3600]",
+                      m.status === "ACCEPTED" ? "border-[#8f9900] bg-tjm-lime text-tjm-charcoal" : "border-tjm-orange bg-[#fff1e6] text-[#7a3600]",
                     )}
                   >
                     {m.time} · you

@@ -3,7 +3,7 @@ import { cn } from "@/lib/utils";
 
 const STYLES: Record<string, { label: string; className: string }> = {
   PENDING: { label: "Pending", className: "border-tjm-orange bg-tjm-orange/10 text-[#b45200] dark:text-tjm-orange" },
-  ACCEPTED: { label: "Confirmed", className: "border-tjm-lime bg-tjm-lime/15 text-[#5f6600] dark:text-tjm-lime" },
+  ACCEPTED: { label: "Confirmed", className: "border-[#8f9900] bg-tjm-lime text-tjm-charcoal" },
   DECLINED: { label: "Declined", className: "border-destructive/60 text-destructive" },
   CANCELLED_BY_CLIENT: { label: "Cancelled", className: "text-muted-foreground" },
   CANCELLED_BY_TRAINER: { label: "Cancelled by trainer", className: "text-muted-foreground" },
