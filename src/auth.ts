@@ -13,7 +13,14 @@ declare module "next-auth" {
   }
 }
 
-const devLoginEnabled = process.env.DEV_LOGIN === "true" && process.env.NODE_ENV !== "production";
+// Password-free sign-in. Locally: DEV_LOGIN=true is enough. In production it also
+// needs DEMO_MODE=true and a DEMO_PASSCODE that the sign-in form must supply, so a
+// deployed demo is not an open door to the trainer account.
+const demoMode = process.env.DEMO_MODE === "true";
+const demoPasscode = process.env.DEMO_PASSCODE?.trim();
+const devLoginEnabled =
+  process.env.DEV_LOGIN === "true" &&
+  (process.env.NODE_ENV !== "production" || (demoMode && !!demoPasscode));
 
 function roleForEmail(email: string | null | undefined): Role {
   const pt = process.env.PT_EMAIL?.trim().toLowerCase();
@@ -34,8 +41,10 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           Credentials({
             id: "dev",
             name: "Dev login",
-            credentials: { email: { label: "Email" }, name: { label: "Name" } },
+            credentials: { email: { label: "Email" }, name: { label: "Name" }, passcode: { label: "Passcode" } },
             async authorize(creds) {
+              // In production the shared demo passcode is required.
+              if (demoPasscode && String(creds?.passcode ?? "") !== demoPasscode) return null;
               const email = String(creds?.email ?? "").trim().toLowerCase();
               if (!email) return null;
               const typedName = String(creds?.name ?? "").trim();
@@ -78,3 +87,5 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
 });
 
 export const isDevLoginEnabled = devLoginEnabled;
+/** True when the dev-login form must also collect the shared demo passcode. */
+export const isDemoPasscodeRequired = devLoginEnabled && !!demoPasscode;

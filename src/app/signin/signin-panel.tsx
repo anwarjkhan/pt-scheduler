@@ -1,6 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
-import { signIn, isDevLoginEnabled } from "@/auth";
+import { signIn, isDevLoginEnabled, isDemoPasscodeRequired } from "@/auth";
 import { SITE } from "@/content/site";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -38,7 +38,11 @@ export function SignInPanel({ mode, target }: { mode: "signin" | "register"; tar
             <Button type="submit" size="lg" className="w-full font-heading font-semibold" disabled={!hasGoogle}>
               {register ? "Register with Google" : "Sign in with Google"}
             </Button>
-            {!hasGoogle && <p className="mt-2 text-center text-xs text-white/50">Set AUTH_GOOGLE_ID / AUTH_GOOGLE_SECRET to enable Google sign-in.</p>}
+            {!hasGoogle && (
+              <p className="mt-2 text-center text-xs text-white/50">
+                {isDevLoginEnabled ? "Google sign-in isn’t set up — use the form below." : "Set AUTH_GOOGLE_ID / AUTH_GOOGLE_SECRET to enable Google sign-in."}
+              </p>
+            )}
           </form>
           <p className="mt-3 text-center text-xs text-white/60">
             {register ? "Already registered? " : "New to TJM Training? "}
@@ -52,10 +56,17 @@ export function SignInPanel({ mode, target }: { mode: "signin" | "register"; tar
               className="mt-6 space-y-3 rounded-md border border-dashed border-white/25 p-4"
               action={async (fd: FormData) => {
                 "use server";
-                await signIn("dev", { email: String(fd.get("email")), name: String(fd.get("name") ?? ""), redirectTo });
+                await signIn("dev", {
+                  email: String(fd.get("email")),
+                  name: String(fd.get("name") ?? ""),
+                  passcode: String(fd.get("passcode") ?? ""),
+                  redirectTo,
+                });
               }}
             >
-              <p className="text-xs font-semibold uppercase tracking-wide text-tjm-lime">Dev login (local only)</p>
+              <p className="text-xs font-semibold uppercase tracking-wide text-tjm-lime">
+                {isDemoPasscodeRequired ? "Demo login" : "Dev login (local only)"}
+              </p>
               <div className="space-y-1">
                 <Label htmlFor="email" className="text-white/80">
                   Email
@@ -68,8 +79,16 @@ export function SignInPanel({ mode, target }: { mode: "signin" | "register"; tar
                 </Label>
                 <Input id="name" name="name" placeholder="Optional" className="border-white/20 bg-black/30 text-white placeholder:text-white/40" />
               </div>
+              {isDemoPasscodeRequired && (
+                <div className="space-y-1">
+                  <Label htmlFor="passcode" className="text-white/80">
+                    Demo passcode
+                  </Label>
+                  <Input id="passcode" name="passcode" type="password" required className="border-white/20 bg-black/30 text-white placeholder:text-white/40" />
+                </div>
+              )}
               <Button type="submit" variant="outline" className="w-full border-white/30 bg-transparent text-white hover:bg-white/10 hover:text-white">
-                Sign in (dev)
+                {isDemoPasscodeRequired ? "Sign in" : "Sign in (dev)"}
               </Button>
               <p className="text-[11px] text-white/50">Use the PT_EMAIL address to sign in as the trainer.</p>
             </form>
