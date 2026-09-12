@@ -12,7 +12,7 @@ const PX_PER_MIN = 1.1;
 
 const STATUS_STYLE: Record<string, string> = {
   PENDING: "border-tjm-orange bg-[#fff1e6] text-[#7a3600] dark:bg-tjm-orange/20 dark:text-orange-100",
-  ACCEPTED: "border-[#8f9900] bg-tjm-lime text-tjm-charcoal font-semibold shadow-md",
+  ACCEPTED: "border-[#166b3a] bg-tjm-confirm text-white font-semibold shadow-md",
   DECLINED: "border-dashed opacity-40",
   CANCELLED_BY_CLIENT: "border-dashed opacity-40 line-through",
   CANCELLED_BY_TRAINER: "border-dashed opacity-40 line-through",

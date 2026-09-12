@@ -90,7 +90,7 @@ export async function TrainerCalendarView({ sp, basePath = "/trainer" }: { sp: P
 
       <div className="flex flex-wrap gap-4 text-xs text-muted-foreground">
         <span><span className="mr-1 inline-block h-3 w-3 rounded-sm border border-tjm-orange bg-[#fff1e6] align-middle" />Pending</span>
-        <span><span className="mr-1 inline-block h-3 w-3 rounded-sm border border-[#8f9900] bg-tjm-lime align-middle" />Confirmed</span>
+        <span><span className="mr-1 inline-block h-3 w-3 rounded-sm border border-[#166b3a] bg-tjm-confirm align-middle" />Confirmed</span>
         <span><span className="mr-1 inline-block h-3 w-3 rounded-sm bg-tjm-charcoal/15 align-middle" />Drive time</span>
         <span><span className="mr-1 inline-block h-3 w-3 rounded-sm bg-destructive/30 align-middle" />Not enough travel time</span>
         <span><span className="mr-1 inline-block h-3 w-3 rounded-sm bg-muted align-middle" />Outside working hours</span>

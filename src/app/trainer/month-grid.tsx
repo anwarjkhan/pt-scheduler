@@ -8,7 +8,7 @@ export type MonthBooking = { id: string; startAt: Date; status: string; clientNa
 
 const CHIP: Record<string, string> = {
   PENDING: "border-tjm-orange bg-[#fff1e6] text-[#7a3600]",
-  ACCEPTED: "border-[#8f9900] bg-tjm-lime text-tjm-charcoal",
+  ACCEPTED: "border-[#166b3a] bg-tjm-confirm text-white",
 };
 
 /** Trainer month overview: sessions per day as status chips; each day links to its day view. */
