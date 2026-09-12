@@ -123,7 +123,7 @@ export function AccountMenu({ user, badges = {}, calendar, calendarOpen = false,
         aria-label={user ? "Account menu" : "Sign in"}
         onClick={() => setOpen((o) => !o)}
         className={cn(
-          "flex items-center gap-2 rounded-md border border-white/20 text-white transition-colors hover:bg-white/10",
+          "flex items-center gap-2 rounded-md text-white transition-colors hover:bg-white/10",
           user ? "py-1 pl-1 pr-2" : "p-1.5",
           open && "bg-white/10",
         )}
