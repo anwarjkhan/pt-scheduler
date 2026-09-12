@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { formatInTimeZone } from "date-fns-tz";
 import { db } from "@/lib/db";
 import { getSchedulingSettings } from "@/lib/settings";
@@ -24,7 +25,12 @@ export default async function ClientsPage() {
         {clients.map((c) => (
           <Card key={c.id}>
             <CardHeader>
-              <CardTitle>{c.name ?? c.email}</CardTitle>
+              <CardTitle className="flex items-center justify-between gap-2">
+                <span>{c.name ?? c.email}</span>
+                <Link href={`/trainer/clients/${c.id}`} className="font-heading text-xs font-semibold text-tjm-orange hover:underline">
+                  History →
+                </Link>
+              </CardTitle>
               <CardDescription>
                 {c.email}
                 {c.phone ? ` · ${c.phone}` : ""} · {c._count.bookings} booking{c._count.bookings === 1 ? "" : "s"} total

@@ -45,6 +45,8 @@ npm run dev
 
 ### Demo data
 
+`npm run db:seed:history` adds ~3 months of past sessions for Alice and Bob (completed, cancelled, declined, with notes) so the trainer's per-client history page has data.
+
 `npm run db:seed` creates the trainer settings, a Mon–Fri 07:00–20:00 template, clients Alice and Bob with London addresses, and three bookings next Monday — including a deliberately tight commute so the calendar shows a red segment immediately. With `DEV_LOGIN=true`, sign in as `trainer@example.com` (or your `PT_EMAIL`), `alice@example.com`, or `bob@example.com`.
 
 ## How scheduling works
