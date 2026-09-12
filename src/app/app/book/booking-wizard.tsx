@@ -16,6 +16,7 @@ import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { DURATIONS, MAX_SERIES_WEEKS } from "@/lib/scheduling";
 import { AlertTriangle, ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
+import { ClientMonthGrid } from "./month-grid";
 
 type Location = { id: string; label: string | null; formatted: string };
 
@@ -29,6 +30,7 @@ export function BookingWizard({ locations, todayKey, coverage }: { locations: Lo
     // On a weekend the current Mon–Sun week is all in the past; open on next week instead.
     return today.getDay() === 0 || today.getDay() === 6 ? addDays(monday, 7) : monday;
   });
+  const [view, setView] = useState<"week" | "month">("week");
   const [result, setResult] = useState<{ key: string; days: DaySlots[] } | null>(null);
   const [selected, setSelected] = useState<{ day: DaySlots; slot: SlotDto } | null>(null);
 
@@ -38,7 +40,7 @@ export function BookingWizard({ locations, todayKey, coverage }: { locations: Lo
   const loading = !!locationId && result?.key !== queryKey;
 
   useEffect(() => {
-    if (!locationId) return;
+    if (!locationId || view !== "week") return;
     let cancelled = false;
     fetch(`/api/slots?date=${weekKey}&days=7&duration=${duration}&locationId=${locationId}`)
       .then((r) => r.json())
@@ -48,7 +50,7 @@ export function BookingWizard({ locations, todayKey, coverage }: { locations: Lo
     return () => {
       cancelled = true;
     };
-  }, [weekKey, duration, locationId, queryKey]);
+  }, [weekKey, duration, locationId, queryKey, view]);
 
   const onCreated = useCallback(
     (id: string) => {
@@ -101,18 +103,42 @@ export function BookingWizard({ locations, todayKey, coverage }: { locations: Lo
           </div>
         </div>
         <div className="ml-auto flex items-center gap-2">
-          <Button type="button" variant="outline" size="icon" onClick={() => setWeekStart(addDays(weekStart, -7))} aria-label="Previous week">
-            <ChevronLeft className="h-4 w-4" />
-          </Button>
-          <span className="min-w-44 text-center text-sm font-medium">
-            {format(weekStart, "d MMM")} – {format(addDays(weekStart, 6), "d MMM yyyy")}
-          </span>
-          <Button type="button" variant="outline" size="icon" onClick={() => setWeekStart(addDays(weekStart, 7))} aria-label="Next week">
-            <ChevronRight className="h-4 w-4" />
-          </Button>
+          <div className="mr-2 flex gap-1">
+            <Button type="button" size="sm" variant={view === "week" ? "default" : "outline"} onClick={() => setView("week")}>
+              Week
+            </Button>
+            <Button type="button" size="sm" variant={view === "month" ? "default" : "outline"} onClick={() => setView("month")}>
+              Month
+            </Button>
+          </div>
+          {view === "week" && (
+            <>
+              <Button type="button" variant="outline" size="icon" onClick={() => setWeekStart(addDays(weekStart, -7))} aria-label="Previous week">
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+              <span className="min-w-44 text-center text-sm font-medium">
+                {format(weekStart, "d MMM")} – {format(addDays(weekStart, 6), "d MMM yyyy")}
+              </span>
+              <Button type="button" variant="outline" size="icon" onClick={() => setWeekStart(addDays(weekStart, 7))} aria-label="Next week">
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+            </>
+          )}
         </div>
       </div>
 
+      {view === "month" ? (
+        <ClientMonthGrid
+          anchor={weekKey}
+          duration={duration}
+          todayKey={todayKey}
+          onAnchorChange={(d) => setWeekStart(startOfWeek(parseISO(d), { weekStartsOn: 1 }))}
+          onPickDay={(d) => {
+            setWeekStart(startOfWeek(parseISO(d), { weekStartsOn: 1 }));
+            setView("week");
+          }}
+        />
+      ) : (
       <div className="relative">
         {loading && (
           <div className="absolute inset-0 z-10 flex items-center justify-center bg-background/60">
@@ -167,6 +193,7 @@ export function BookingWizard({ locations, todayKey, coverage }: { locations: Lo
           Orange slots leave your trainer little travel time from the previous session — you can still request them, but they may be declined.
         </p>
       </div>
+      )}
 
       {selected && (
         <ConfirmDialog
