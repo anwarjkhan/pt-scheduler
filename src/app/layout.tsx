@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Poppins, Nunito_Sans } from "next/font/google";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { SITE } from "@/content/site";
+import { auth } from "@/auth";
 import "./globals.css";
 
 // Poppins for headings (as on tjmtraining.com); Nunito Sans stands in for Avenir Light body copy.
@@ -13,10 +14,11 @@ export const metadata: Metadata = {
   description: "Personal training, prehab and rehab in Thames Ditton and Surrey — book sessions with Toby online.",
 };
 
-export default function RootLayout({ children }: LayoutProps<"/">) {
+export default async function RootLayout({ children }: LayoutProps<"/">) {
+  const role = (await auth())?.user?.role;
   return (
     <html lang="en" className={`${heading.variable} ${body.variable} h-full antialiased`}>
-      <body className="min-h-full flex flex-col bg-background text-foreground">
+      <body data-role={role} className="min-h-full flex flex-col bg-background text-foreground">
         <TooltipProvider>{children}</TooltipProvider>
       </body>
     </html>

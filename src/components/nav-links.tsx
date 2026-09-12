@@ -17,7 +17,7 @@ export function NavLinks({ items }: { items: NavItem[] }) {
             href={n.href}
             className={cn(
               "whitespace-nowrap border-b-2 px-3 py-2 font-heading text-sm font-semibold transition-colors",
-              active ? "border-tjm-yellow text-white" : "border-transparent text-white/75 hover:text-white",
+              active ? "border-role text-white" : "border-transparent text-white/75 hover:text-white",
             )}
           >
             {n.label}

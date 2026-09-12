@@ -132,7 +132,7 @@ export function AccountMenu({ user, badges = {}, calendar, calendarOpen = false,
           <>
             <Avatar className="h-7 w-7">
               <AvatarImage src={user.image ?? undefined} alt="" />
-              <AvatarFallback className="bg-tjm-yellow text-xs font-bold text-tjm-charcoal">{initials || <UserRound className="h-4 w-4" />}</AvatarFallback>
+              <AvatarFallback className="bg-role text-xs font-bold">{initials || <UserRound className="h-4 w-4" />}</AvatarFallback>
             </Avatar>
             <span className="hidden max-w-32 truncate font-heading text-sm font-semibold sm:inline">{user.name ?? user.email}</span>
           </>
@@ -152,13 +152,13 @@ export function AccountMenu({ user, badges = {}, calendar, calendarOpen = false,
               <div className="flex items-center gap-3 border-b bg-muted/50 px-4 py-3">
                 <Avatar className="h-10 w-10">
                   <AvatarImage src={user.image ?? undefined} alt="" />
-                  <AvatarFallback className="bg-tjm-yellow font-bold text-tjm-charcoal">{initials}</AvatarFallback>
+                  <AvatarFallback className="bg-role font-bold">{initials}</AvatarFallback>
                 </Avatar>
                 <div className="min-w-0">
                   <div className="truncate font-heading font-semibold">{user.name ?? user.email}</div>
                   <div className="truncate text-xs text-muted-foreground">{user.email}</div>
                 </div>
-                <span className="ml-auto shrink-0 rounded-sm bg-tjm-charcoal px-1.5 py-0.5 font-heading text-[10px] font-semibold uppercase tracking-wide text-tjm-yellow">
+                <span className="ml-auto shrink-0 rounded-sm bg-tjm-charcoal px-1.5 py-0.5 font-heading text-[10px] font-semibold uppercase tracking-wide text-role">
                   {user.role === "TRAINER" ? "Trainer" : "Client"}
                 </span>
               </div>
@@ -182,7 +182,7 @@ export function AccountMenu({ user, badges = {}, calendar, calendarOpen = false,
                       ) : null;
                     return it.href === "calendar" ? (
                       <button key={it.label} type="button" role="menuitem" onClick={openCalendar} className={cn(itemClass, "font-semibold")}>
-                        <Icon className="h-4 w-4 text-tjm-orange" /> {it.label}
+                        <Icon className="h-4 w-4 text-role" /> {it.label}
                       </button>
                     ) : (
                       <Link key={it.label} href={it.href} role="menuitem" onClick={() => setOpen(false)} className={itemClass}>

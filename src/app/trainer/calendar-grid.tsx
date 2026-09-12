@@ -86,7 +86,7 @@ export function CalendarGrid({ days, todayKey }: { days: CalendarDay[]; todayKey
             <div key={day.date} className="relative min-w-0 flex-1 border-r last:border-r-0">
               <div className={cn("sticky top-0 z-10 h-10 border-b bg-tjm-charcoal px-2 py-1 text-center text-white", isToday && "bg-tjm-ink")}>
                 <div className="font-heading text-[11px] uppercase text-white/60">{format(d, "EEE")}</div>
-                <div className={cn("font-heading text-sm font-semibold", isToday && "text-tjm-yellow")}>{format(d, "d MMM")}</div>
+                <div className={cn("font-heading text-sm font-semibold", isToday && "text-role")}>{format(d, "d MMM")}</div>
               </div>
               <div className="relative bg-muted/40" style={{ height }}>
                 {/* open windows */}

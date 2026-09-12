@@ -140,7 +140,15 @@
   }
 }
 
+/* Role accent: clients = brand yellow, trainer = brand orange. Set via data-role on <body>. */
+body { --role-accent: #f1d600; --role-accent-fg: #262626; }
+body[data-role="TRAINER"] { --role-accent: #ff7300; --role-accent-fg: #ffffff; }
+
 @layer utilities {
+  .bg-role { background-color: var(--role-accent); color: var(--role-accent-fg); }
+  .text-role { color: var(--role-accent); }
+  .border-role { border-color: var(--role-accent); }
+  .ring-role { --tw-ring-color: var(--role-accent); }
   /* Trainer exceptions (days off, blocked hours): darker than outside-hours grey, with hatching */
   .bg-exception {
     background-color: color-mix(in oklch, var(--muted-foreground) 22%, var(--background));

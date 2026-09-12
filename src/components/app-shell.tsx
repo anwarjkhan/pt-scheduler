@@ -11,7 +11,7 @@ export function AppShell({ nav, title, children }: { nav: NavItem[]; title: stri
       <SiteHeader />
       <div className="bg-tjm-charcoal text-white">
         <div className="mx-auto flex max-w-6xl items-center gap-6 px-4">
-          <span className="hidden py-3 font-heading text-sm font-semibold uppercase tracking-widest text-tjm-yellow sm:inline">{title}</span>
+          <span className="hidden py-3 font-heading text-sm font-semibold uppercase tracking-widest text-role sm:inline">{title}</span>
           <NavLinks items={nav} />
         </div>
       </div>

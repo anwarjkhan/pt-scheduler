@@ -63,7 +63,7 @@ export function TrainerMonthGrid({
                 !inMonth && "bg-muted/40 text-muted-foreground",
                 closed && inMonth && !note && "bg-muted/60",
                 note && inMonth && "bg-exception",
-                date === todayKey && "ring-2 ring-inset ring-tjm-yellow",
+                date === todayKey && "ring-2 ring-inset ring-role",
               )}
             >
               <div className="flex items-baseline justify-between">

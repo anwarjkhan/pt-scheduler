@@ -84,7 +84,7 @@ export function ClientMonthGrid({
                   !inMonth && "bg-muted/40 text-muted-foreground",
                   inMonth && !past && d?.exception && !d.open && "bg-exception",
                   bookable ? "hover:bg-accent" : "cursor-default",
-                  date === todayKey && "ring-2 ring-inset ring-tjm-yellow",
+                  date === todayKey && "ring-2 ring-inset ring-role",
                 )}
               >
                 <span className={cn("font-heading text-sm font-semibold", past && "text-muted-foreground")}>{format(parseISO(date), "d")}</span>
