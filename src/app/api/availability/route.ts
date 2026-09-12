@@ -15,6 +15,8 @@ export type MonthDay = {
   open: boolean;
   /** Free start times ignoring commute (cheap), so the month view can show "12 times" per day. */
   free: number;
+  /** Set when the trainer has an UNAVAILABLE exception that day (e.g. "Holiday"); drawn darker than a normal day off. */
+  exception?: string;
   mine: { time: string; status: string }[];
 };
 export type MonthResponse = { monthKey: string; days: MonthDay[] };
@@ -40,6 +42,11 @@ export async function GET(req: NextRequest) {
       date,
       open: ctx.windows.length > 0,
       free: slots.length,
+      exception: ctx.exceptions.find((e) => e.type === "UNAVAILABLE")
+        ? ctx.exceptions.find((e) => e.type === "UNAVAILABLE")!.startTime
+          ? "Partly unavailable"
+          : "Day off"
+        : undefined,
       mine: ctx.bookings
         .filter((b) => b.clientId === session.user.id && ["PENDING", "ACCEPTED"].includes(b.status))
         .map((b) => ({ time: timeKey(b.startAt, ctx.tz), status: b.status })),

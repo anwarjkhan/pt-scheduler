@@ -97,6 +97,23 @@ export function CalendarGrid({ days, todayKey }: { days: CalendarDay[]; todayKey
                     style={{ top: y(w.startTime), height: (hhmmToMinutes(w.endTime) - hhmmToMinutes(w.startTime)) * PX_PER_MIN }}
                   />
                 ))}
+                {/* exceptions (days off / blocked hours): darker, striped, note on hover */}
+                {day.blocks.map((bl, i) => {
+                  const top = Math.max(0, y(bl.startTime));
+                  const bottom = Math.min(height, y(bl.endTime));
+                  return (
+                    <div
+                      key={`x${i}`}
+                      className="absolute inset-x-0 bg-exception"
+                      style={{ top, height: Math.max(0, bottom - top) }}
+                      title={bl.note ? `Unavailable: ${bl.note}` : "Unavailable"}
+                    >
+                      {bl.note && bottom - top > 24 && (
+                        <span className="absolute left-1 top-1 rounded-sm bg-background/80 px-1 text-[10px] text-muted-foreground">{bl.note}</span>
+                      )}
+                    </div>
+                  );
+                })}
                 {/* hour lines */}
                 {hours.map((m) => (
                   <div key={m} className="absolute inset-x-0 border-t border-dashed border-border/60" style={{ top: (m - minM) * PX_PER_MIN }} />

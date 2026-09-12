@@ -42,7 +42,8 @@ export async function loadDayContext(date: string) {
   const dayEnd = zoned(addDaysKey(date, 1, tz), "00:00", tz);
   const bookings = await loadBookingsBetween(dayStart, dayEnd);
   const windows = getWindowsForDate(date, tz, rules, exceptions);
-  return { settings, settingsRow, tz, windows, bookings, existing: bookings.map(toExisting) };
+  const dayExceptions = exceptions.filter((e) => e.date === date);
+  return { settings, settingsRow, tz, windows, bookings, existing: bookings.map(toExisting), exceptions: dayExceptions };
 }
 
 /** Re-evaluate a stored booking against its current neighbours (excluding itself). */

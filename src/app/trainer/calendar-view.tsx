@@ -94,6 +94,7 @@ export async function TrainerCalendarView({ sp, basePath = "/trainer" }: { sp: P
         <span><span className="mr-1 inline-block h-3 w-3 rounded-sm bg-tjm-charcoal/15 align-middle" />Drive time</span>
         <span><span className="mr-1 inline-block h-3 w-3 rounded-sm bg-destructive/30 align-middle" />Not enough travel time</span>
         <span><span className="mr-1 inline-block h-3 w-3 rounded-sm bg-muted align-middle" />Outside working hours</span>
+        <span><span className="mr-1 inline-block h-3 w-3 rounded-sm bg-exception align-middle" />Day off / blocked</span>
       </div>
     </div>
   );
@@ -126,6 +127,13 @@ async function MonthView({
     db.booking.count({ where: { status: "PENDING" } }),
   ]);
   const closedDates = new Set(dates.filter((d) => getWindowsForDate(d, tz, rules, exceptions).length === 0));
+  // Any UNAVAILABLE exception on the day (whole or partial) → shown with its note in the darker shade.
+  const exceptionNotes = new Map<string, string>();
+  for (const e of exceptions) {
+    if (e.type !== "UNAVAILABLE" || !dates.includes(e.date)) continue;
+    const label = e.note ?? (e.startTime ? `Off ${e.startTime}–${e.endTime}` : "Day off");
+    exceptionNotes.set(e.date, e.startTime && !e.note ? label : e.startTime ? `${label} (${e.startTime}–${e.endTime})` : label);
+  }
   const first = parseISO(`${monthKey}-01`);
 
   return (
@@ -166,6 +174,7 @@ async function MonthView({
         dates={dates}
         bookings={bookings.map((b) => ({ id: b.id, startAt: b.startAt, status: b.status, clientName: b.client.name ?? b.client.email }))}
         closedDates={closedDates}
+        exceptionNotes={exceptionNotes}
         todayKey={todayKey}
         tz={tz}
         dayHref={(d) => href(d, "day")}

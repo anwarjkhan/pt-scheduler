@@ -141,6 +141,11 @@
 }
 
 @layer utilities {
+  /* Trainer exceptions (days off, blocked hours): darker than outside-hours grey, with hatching */
+  .bg-exception {
+    background-color: color-mix(in oklch, var(--muted-foreground) 22%, var(--background));
+    background-image: repeating-linear-gradient(135deg, transparent 0 6px, color-mix(in oklch, var(--muted-foreground) 18%, transparent) 6px 8px);
+  }
   /* The sunset gradient behind the tjmtraining.com hero: orange → yellow → lime */
   .bg-tjm-sunset {
     background-image: linear-gradient(105deg, #c74300 0%, #ff7300 30%, #f1d600 65%, #b7c200 100%);

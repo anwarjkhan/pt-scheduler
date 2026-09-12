@@ -82,6 +82,7 @@ export function ClientMonthGrid({
                 className={cn(
                   "flex min-h-20 flex-col items-start gap-1 border-b border-r p-1.5 text-left text-xs transition-colors",
                   !inMonth && "bg-muted/40 text-muted-foreground",
+                  inMonth && !past && d?.exception && !d.open && "bg-exception",
                   bookable ? "hover:bg-accent" : "cursor-default",
                   date === todayKey && "ring-2 ring-inset ring-tjm-yellow",
                 )}
@@ -99,7 +100,7 @@ export function ClientMonthGrid({
                   </span>
                 ))}
                 {past ? null : !d?.open ? (
-                  <span className="text-[10px] text-muted-foreground">Off</span>
+                  <span className="text-[10px] text-muted-foreground">{d?.exception ?? "Off"}</span>
                 ) : d.free === 0 ? (
                   <span className="text-[10px] text-muted-foreground">Full</span>
                 ) : (

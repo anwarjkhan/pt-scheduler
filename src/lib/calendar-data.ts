@@ -36,6 +36,8 @@ export type CommuteSegment = {
 export type CalendarDay = {
   date: string;
   windows: { start: string; end: string; startTime: string; endTime: string }[];
+  /** UNAVAILABLE exceptions on this date (whole-day ones span 00:00–24:00). Drawn darker than plain outside-hours. */
+  blocks: { startTime: string; endTime: string; note: string | null }[];
   bookings: CalendarBooking[];
   segments: CommuteSegment[];
   /** Home → first and last → home legs, for the day summary. */
@@ -101,6 +103,9 @@ export async function buildCalendarDay(date: string): Promise<CalendarDay> {
   return {
     date,
     windows: ctx.windows.map((w) => ({ start: w.start.toISOString(), end: w.end.toISOString(), startTime: timeKey(w.start, tz), endTime: timeKey(w.end, tz) })),
+    blocks: ctx.exceptions
+      .filter((e) => e.type === "UNAVAILABLE")
+      .map((e) => ({ startTime: e.startTime ?? "00:00", endTime: e.endTime ?? "24:00", note: e.note })),
     bookings,
     segments,
     homeLegs: { first: first?.evaluation.before, last: last?.evaluation.after },

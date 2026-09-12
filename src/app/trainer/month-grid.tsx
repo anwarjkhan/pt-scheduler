@@ -17,6 +17,7 @@ export function TrainerMonthGrid({
   dates,
   bookings,
   closedDates,
+  exceptionNotes,
   todayKey,
   tz,
   dayHref,
@@ -26,6 +27,8 @@ export function TrainerMonthGrid({
   bookings: MonthBooking[];
   /** Dates with no open availability window (weekly template + exceptions). */
   closedDates: Set<string>;
+  /** date → note for days with an UNAVAILABLE exception (drawn darker than template-closed days). */
+  exceptionNotes: Map<string, string>;
   todayKey: string;
   tz: string;
   dayHref: (date: string) => string;
@@ -50,6 +53,7 @@ export function TrainerMonthGrid({
           const inMonth = date.startsWith(monthKey);
           const list = (byDate.get(date) ?? []).filter((b) => ["PENDING", "ACCEPTED"].includes(b.status));
           const closed = closedDates.has(date);
+          const note = exceptionNotes.get(date);
           return (
             <Link
               key={date}
@@ -57,15 +61,17 @@ export function TrainerMonthGrid({
               className={cn(
                 "flex min-h-24 flex-col gap-1 border-b border-r p-1.5 text-xs transition-colors hover:bg-accent",
                 !inMonth && "bg-muted/40 text-muted-foreground",
-                closed && inMonth && "bg-muted/60",
+                closed && inMonth && !note && "bg-muted/60",
+                note && inMonth && "bg-exception",
                 date === todayKey && "ring-2 ring-inset ring-tjm-yellow",
               )}
             >
               <div className="flex items-baseline justify-between">
                 <span className="font-heading text-sm font-semibold">{format(parseISO(date), "d")}</span>
-                {closed && inMonth && <span className="text-[10px] text-muted-foreground">Off</span>}
-                {!closed && list.length > 0 && <span className="text-[10px] text-muted-foreground">{list.length}</span>}
+                {closed && inMonth && !note && <span className="text-[10px] text-muted-foreground">Off</span>}
+                {!closed && !note && list.length > 0 && <span className="text-[10px] text-muted-foreground">{list.length}</span>}
               </div>
+              {note && inMonth && <span className="truncate rounded-sm bg-background/80 px-1 text-[10px] text-muted-foreground">{note}</span>}
               {list.slice(0, 3).map((b) => (
                 <span key={b.id} className={cn("truncate rounded-sm border px-1 font-heading text-[10px] font-semibold", CHIP[b.status])}>
                   {formatInTimeZone(b.startAt, tz, "HH:mm")} {b.clientName}
