@@ -6,7 +6,7 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 
 export type Testimonial = { quote: string; name: string; detail: string; image?: string };
 
-const INTERVAL_MS = 3000;
+const INTERVAL_MS = 5000;
 
 // Browser state read through useSyncExternalStore rather than an effect, so the
 // server snapshot is explicit and there is no setState-in-effect.
@@ -87,7 +87,8 @@ export function TestimonialCarousel({
           fill
           priority={i === 0}
           sizes="100vw"
-          className={`-z-20 object-cover transition-opacity duration-700 motion-reduce:transition-none ${
+          // Slower than the quote so the backdrop settles last.
+          className={`-z-20 object-cover transition-opacity duration-[1200ms] ease-[cubic-bezier(0.4,0,0.2,1)] motion-reduce:transition-none ${
             i === index ? "opacity-100" : "opacity-0"
           }`}
         />
@@ -117,8 +118,11 @@ export function TestimonialCarousel({
               <figure
                 key={t.name}
                 aria-hidden={i !== index}
-                className={`absolute inset-0 flex flex-col justify-center transition-opacity duration-500 motion-reduce:transition-none ${
-                  i === index ? "opacity-100" : "pointer-events-none opacity-0"
+                // Eased fade with a slight drift, so quotes settle into place
+                // rather than blinking on. transform and opacity only, both
+                // compositor-friendly.
+                className={`absolute inset-0 flex flex-col justify-center transition-[opacity,transform] duration-[900ms] ease-[cubic-bezier(0.16,1,0.3,1)] motion-reduce:transition-none motion-reduce:transform-none ${
+                  i === index ? "translate-y-0 opacity-100" : "pointer-events-none translate-y-2 opacity-0"
                 }`}
               >
                 <Quote {...t} />
