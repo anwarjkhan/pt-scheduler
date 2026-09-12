@@ -6,7 +6,7 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 
 export type Testimonial = { quote: string; name: string; detail: string; image?: string };
 
-const INTERVAL_MS = 7000;
+const INTERVAL_MS = 3000;
 
 // Browser state read through useSyncExternalStore rather than an effect, so the
 // server snapshot is explicit and there is no setState-in-effect.
@@ -87,7 +87,7 @@ export function TestimonialCarousel({
           fill
           priority={i === 0}
           sizes="100vw"
-          className={`-z-20 object-cover transition-opacity duration-1000 motion-reduce:transition-none ${
+          className={`-z-20 object-cover transition-opacity duration-700 motion-reduce:transition-none ${
             i === index ? "opacity-100" : "opacity-0"
           }`}
         />
@@ -117,7 +117,7 @@ export function TestimonialCarousel({
               <figure
                 key={t.name}
                 aria-hidden={i !== index}
-                className={`absolute inset-0 flex flex-col justify-center transition-opacity duration-700 motion-reduce:transition-none ${
+                className={`absolute inset-0 flex flex-col justify-center transition-opacity duration-500 motion-reduce:transition-none ${
                   i === index ? "opacity-100" : "pointer-events-none opacity-0"
                 }`}
               >
