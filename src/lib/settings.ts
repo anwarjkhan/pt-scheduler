@@ -30,3 +30,7 @@ export async function getAvailability() {
     exceptions: exceptions.map((e) => ({ ...e, type: e.type as "UNAVAILABLE" | "EXTRA" })),
   };
 }
+
+export async function getSchedulingSettings() {
+  return toSchedulingSettings(await getTrainerSettings());
+}
