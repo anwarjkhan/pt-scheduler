@@ -15,7 +15,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { DURATIONS, MAX_SERIES_WEEKS } from "@/lib/scheduling";
-import { AlertTriangle, ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
+import { AlertTriangle, ChevronLeft, ChevronRight, Loader2, Video } from "lucide-react";
 import { ClientMonthGrid } from "./month-grid";
 
 type Location = { id: string; label: string | null; formatted: string };
@@ -24,6 +24,7 @@ export function BookingWizard({ locations, todayKey, coverage }: { locations: Lo
   const router = useRouter();
   const [locationId, setLocationId] = useState<string>(locations[0]?.id ?? "");
   const [duration, setDuration] = useState<number>(60);
+  const [sessionType, setSessionType] = useState<"IN_PERSON" | "ONLINE">("IN_PERSON");
   const [weekStart, setWeekStart] = useState<Date>(() => {
     const today = parseISO(todayKey);
     const monday = startOfWeek(today, { weekStartsOn: 1 });
@@ -35,14 +36,14 @@ export function BookingWizard({ locations, todayKey, coverage }: { locations: Lo
   const [selected, setSelected] = useState<{ day: DaySlots; slot: SlotDto } | null>(null);
 
   const weekKey = format(weekStart, "yyyy-MM-dd");
-  const queryKey = `${weekKey}|${duration}|${locationId}`;
+  const queryKey = `${weekKey}|${duration}|${locationId}|${sessionType}`;
   const days = result?.days ?? null;
   const loading = !!locationId && result?.key !== queryKey;
 
   useEffect(() => {
     if (!locationId || view !== "week") return;
     let cancelled = false;
-    fetch(`/api/slots?date=${weekKey}&days=7&duration=${duration}&locationId=${locationId}`)
+    fetch(`/api/slots?date=${weekKey}&days=7&duration=${duration}&locationId=${locationId}&sessionType=${sessionType}`)
       .then((r) => r.json())
       .then((j: SlotsResponse) => {
         if (!cancelled) setResult({ key: queryKey, days: j.days });
@@ -50,7 +51,7 @@ export function BookingWizard({ locations, todayKey, coverage }: { locations: Lo
     return () => {
       cancelled = true;
     };
-  }, [weekKey, duration, locationId, queryKey, view]);
+  }, [weekKey, duration, locationId, sessionType, queryKey, view]);
 
   const onCreated = useCallback(
     (id: string) => {
@@ -78,20 +79,37 @@ export function BookingWizard({ locations, todayKey, coverage }: { locations: Lo
     <div className="space-y-6">
       <div className="flex flex-wrap items-end gap-4">
         <div className="space-y-1">
-          <Label>Location</Label>
-          <select
-            value={locationId}
-            onChange={(e) => setLocationId(e.target.value)}
-            className="h-9 min-w-56 rounded-md border bg-transparent px-3 text-sm"
-          >
-            {locations.map((l) => (
-              <option key={l.id} value={l.id}>
-                {l.label ? `${l.label} — ` : ""}
-                {l.formatted}
-              </option>
-            ))}
-          </select>
+          <Label>Session</Label>
+          <div className="flex gap-1">
+            <Button type="button" size="sm" variant={sessionType === "IN_PERSON" ? "default" : "outline"} onClick={() => setSessionType("IN_PERSON")}>
+              One-to-one
+            </Button>
+            <Button type="button" size="sm" variant={sessionType === "ONLINE" ? "default" : "outline"} onClick={() => setSessionType("ONLINE")}>
+              <Video className="mr-1 h-4 w-4" /> Online
+            </Button>
+          </div>
         </div>
+        {sessionType === "IN_PERSON" ? (
+          <div className="space-y-1">
+            <Label>Location</Label>
+            <select
+              value={locationId}
+              onChange={(e) => setLocationId(e.target.value)}
+              className="h-9 min-w-56 rounded-md border bg-transparent px-3 text-sm"
+            >
+              {locations.map((l) => (
+                <option key={l.id} value={l.id}>
+                  {l.label ? `${l.label} — ` : ""}
+                  {l.formatted}
+                </option>
+              ))}
+            </select>
+          </div>
+        ) : (
+          <p className="max-w-xs text-sm text-muted-foreground">
+            Toby runs online sessions from home, so the times below allow for his journey back from any session before yours.
+          </p>
+        )}
         <div className="space-y-1">
           <Label>Duration</Label>
           <div className="flex gap-1">
@@ -199,6 +217,7 @@ export function BookingWizard({ locations, todayKey, coverage }: { locations: Lo
         <ConfirmDialog
           key={selected.slot.start}
           locationId={locationId}
+          sessionType={sessionType}
           duration={duration}
           day={selected.day}
           slot={selected.slot}
@@ -211,12 +230,14 @@ export function BookingWizard({ locations, todayKey, coverage }: { locations: Lo
 
 function ConfirmDialog({
   locationId,
+  sessionType,
   duration,
   day,
   slot,
   onClose,
 }: {
   locationId: string;
+  sessionType: "IN_PERSON" | "ONLINE";
   duration: number;
   day: DaySlots;
   slot: SlotDto;
@@ -231,8 +252,8 @@ function ConfirmDialog({
   const [pending, start] = useTransition();
 
   const seriesArgs = useMemo(
-    () => ({ locationId, firstStart: slot.start, duration, weeks, note }),
-    [locationId, slot.start, duration, weeks, note],
+    () => ({ locationId, sessionType, firstStart: slot.start, duration, weeks, note }),
+    [locationId, sessionType, slot.start, duration, weeks, note],
   );
 
   useEffect(() => {
@@ -248,12 +269,12 @@ function ConfirmDialog({
     };
     // note isn't needed for preview
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [recurring, weeks, slot.start, duration, locationId]);
+  }, [recurring, weeks, slot.start, duration, locationId, sessionType]);
 
   const submit = () =>
     start(async () => {
       setError(null);
-      const r = recurring ? await createSeries(seriesArgs) : await createBooking({ locationId, start: slot.start, duration, note });
+      const r = recurring ? await createSeries(seriesArgs) : await createBooking({ locationId, sessionType, start: slot.start, duration, note });
       if (r.error && !r.ok) return setError(r.error);
       router.push("/app?requested=1");
     });

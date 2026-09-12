@@ -5,7 +5,7 @@ import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import { getCommute } from "@/lib/maps";
 import { requireUser } from "@/lib/session";
-import { loadDayContext } from "@/lib/bookings";
+import { loadDayContext, sessionCoords, SESSION_TYPES } from "@/lib/bookings";
 import { getSchedulingSettings } from "@/lib/settings";
 import {
   addMinutes,
@@ -25,13 +25,14 @@ export type BookingResult = { ok?: boolean; error?: string; warning?: boolean; b
 
 const single = z.object({
   locationId: z.string().min(1),
+  sessionType: z.enum(SESSION_TYPES).default("IN_PERSON"),
   start: z.string().datetime(),
   duration: z.coerce.number().refine((n) => (DURATIONS as readonly number[]).includes(n), "Invalid duration"),
   note: z.string().max(300).optional(),
 });
 
 /** Validate a candidate against availability, overlaps and notice. Returns the evaluation or an error string. */
-async function validateCandidate(userId: string, locationId: string, start: Date, duration: number) {
+async function validateCandidate(userId: string, locationId: string, start: Date, duration: number, sessionType: string = "IN_PERSON") {
   const loc = await db.location.findFirst({ where: { id: locationId, userId } });
   if (!loc) return { error: "Location not found." } as const;
 
@@ -41,7 +42,11 @@ async function validateCandidate(userId: string, locationId: string, start: Date
   if (!meetsMinNotice(start, ctx.settings.minNoticeHours)) {
     return { error: `Bookings need at least ${ctx.settings.minNoticeHours} hours' notice.` } as const;
   }
-  const evaluation = await evaluateSlot({ start, end, loc: { lat: loc.lat, lng: loc.lng } }, ctx.existing, ctx.windows, ctx.settings, getCommute);
+  // Online sessions are run from the trainer's home, so they are evaluated
+  // there — which makes the engine reserve the drive back from a preceding
+  // in-person session.
+  const loc0 = sessionCoords(sessionType, loc, ctx.settings.home);
+  const evaluation = await evaluateSlot({ start, end, loc: loc0 }, ctx.existing, ctx.windows, ctx.settings, getCommute);
   if (evaluation.overlaps) return { error: "That time has just been taken. Please pick another slot." } as const;
   if (evaluation.outsideAvailability) return { error: "That time is outside your trainer's availability." } as const;
   return { evaluation, end, loc, ctx } as const;
@@ -54,13 +59,14 @@ export async function createBooking(input: z.infer<typeof single>): Promise<Book
   const d = parsed.data;
   const start = new Date(d.start);
 
-  const v = await validateCandidate(user.id, d.locationId, start, d.duration);
+  const v = await validateCandidate(user.id, d.locationId, start, d.duration, d.sessionType);
   if ("error" in v) return { error: v.error };
 
   const booking = await db.booking.create({
     data: {
       clientId: user.id,
       locationId: d.locationId,
+      sessionType: d.sessionType,
       startAt: start,
       endAt: v.end,
       durationMin: d.duration,
@@ -77,6 +83,7 @@ export async function createBooking(input: z.infer<typeof single>): Promise<Book
 
 const seriesInput = z.object({
   locationId: z.string().min(1),
+  sessionType: z.enum(SESSION_TYPES).default("IN_PERSON"),
   firstStart: z.string().datetime(), // the first occurrence, chosen from the calendar
   duration: z.coerce.number().refine((n) => (DURATIONS as readonly number[]).includes(n)),
   weeks: z.coerce.number().int().min(2).max(MAX_SERIES_WEEKS),
@@ -116,7 +123,13 @@ export async function previewSeries(input: z.infer<typeof seriesInput>): Promise
   const out: OccurrencePreview[] = [];
   for (const o of occ) {
     const ctx = await loadDayContext(o.date);
-    const ev = await evaluateSlot({ start: o.start, end: o.end, loc: { lat: loc.lat, lng: loc.lng } }, ctx.existing, ctx.windows, ctx.settings, getCommute);
+    const ev = await evaluateSlot(
+      { start: o.start, end: o.end, loc: sessionCoords(d.sessionType, loc, ctx.settings.home) },
+      ctx.existing,
+      ctx.windows,
+      ctx.settings,
+      getCommute,
+    );
     const status: OccurrencePreview["status"] = ev.outsideAvailability
       ? "unavailable"
       : ev.overlaps
@@ -150,6 +163,7 @@ export async function createSeries(input: z.infer<typeof seriesInput>): Promise<
     data: {
       clientId: user.id,
       locationId: d.locationId,
+      sessionType: d.sessionType,
       weekday: weekdayOf(startDate, tz),
       startTime: timeKey(first, tz),
       durationMin: d.duration,
@@ -160,6 +174,7 @@ export async function createSeries(input: z.infer<typeof seriesInput>): Promise<
         create: bookable.map((o) => ({
           clientId: user.id,
           locationId: d.locationId,
+          sessionType: d.sessionType,
           startAt: new Date(o.start),
           endAt: addMinutes(new Date(o.start), d.duration),
           durationMin: d.duration,

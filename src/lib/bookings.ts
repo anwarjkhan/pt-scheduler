@@ -29,8 +29,39 @@ export async function loadBookingsBetween(start: Date, end: Date) {
   });
 }
 
-export function toExisting(b: { id: string; startAt: Date; endAt: Date; status: string; location: LatLng }): ExistingBooking {
-  return { id: b.id, start: b.startAt, end: b.endAt, status: b.status, loc: { lat: b.location.lat, lng: b.location.lng } };
+export const SESSION_TYPES = ["IN_PERSON", "ONLINE"] as const;
+export type SessionType = (typeof SESSION_TYPES)[number];
+
+/**
+ * Where a session is actually run from, for scheduling purposes.
+ *
+ * Online sessions are delivered from the trainer's home, so they are placed at
+ * the home coordinates rather than the client's address. That is what makes the
+ * commute engine reserve the drive back from a preceding in-person session —
+ * no special-casing needed anywhere else.
+ *
+ * Falls back to the client's address when no home is configured, which keeps
+ * the behaviour sane on a fresh install.
+ */
+export function sessionCoords(sessionType: string, clientLoc: LatLng, home: LatLng | null | undefined): LatLng {
+  return sessionType === "ONLINE" && home ? { lat: home.lat, lng: home.lng } : { lat: clientLoc.lat, lng: clientLoc.lng };
+}
+
+export function toExisting(b: {
+  id: string;
+  startAt: Date;
+  endAt: Date;
+  status: string;
+  sessionType?: string;
+  location: LatLng;
+}, home?: LatLng | null): ExistingBooking {
+  return {
+    id: b.id,
+    start: b.startAt,
+    end: b.endAt,
+    status: b.status,
+    loc: sessionCoords(b.sessionType ?? "IN_PERSON", b.location, home),
+  };
 }
 
 /** Everything needed to evaluate slots on one calendar date. */
@@ -43,7 +74,15 @@ export async function loadDayContext(date: string) {
   const bookings = await loadBookingsBetween(dayStart, dayEnd);
   const windows = getWindowsForDate(date, tz, rules, exceptions);
   const dayExceptions = exceptions.filter((e) => e.date === date);
-  return { settings, settingsRow, tz, windows, bookings, existing: bookings.map(toExisting), exceptions: dayExceptions };
+  return {
+    settings,
+    settingsRow,
+    tz,
+    windows,
+    bookings,
+    existing: bookings.map((b) => toExisting(b, settings.home)),
+    exceptions: dayExceptions,
+  };
 }
 
 /** Re-evaluate a stored booking against its current neighbours (excluding itself). */
@@ -53,7 +92,7 @@ export async function evaluateExistingBooking(
 ): Promise<SlotEvaluation> {
   const others = ctx.existing.filter((x) => x.id !== b.id);
   return evaluateSlot(
-    { start: b.startAt, end: b.endAt, loc: { lat: b.location.lat, lng: b.location.lng } },
+    { start: b.startAt, end: b.endAt, loc: sessionCoords(b.sessionType, b.location, ctx.settings.home) },
     others,
     ctx.windows,
     ctx.settings,

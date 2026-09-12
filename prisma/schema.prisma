@@ -170,6 +170,8 @@ model BookingSeries {
   id          String   @id @default(cuid())
   clientId    String
   locationId  String
+  /// IN_PERSON | ONLINE — see Booking.sessionType.
+  sessionType String   @default("IN_PERSON")
   weekday     Int
   startTime   String // "HH:mm" trainer tz
   durationMin Int
@@ -188,6 +190,10 @@ model Booking {
   clientId     String
   seriesId     String?
   locationId   String
+  /// IN_PERSON | ONLINE. Online sessions are run from the trainer's home, so
+  /// they are scheduled against the home coordinates and the commute engine
+  /// reserves the drive back automatically.
+  sessionType  String    @default("IN_PERSON")
   startAt      DateTime
   endAt        DateTime
   durationMin  Int

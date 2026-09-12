@@ -1,4 +1,4 @@
-import { evaluateExistingBooking, loadDayContext, type BookingWithRefs } from "@/lib/bookings";
+import { evaluateExistingBooking, loadDayContext, sessionCoords, type BookingWithRefs } from "@/lib/bookings";
 import { getCommute } from "@/lib/maps";
 import { BLOCKING_STATUSES, coordKey, minutesBetween, timeKey, type Leg, type SlotEvaluation } from "@/lib/scheduling";
 import { getSchedulingSettings } from "@/lib/settings";
@@ -14,6 +14,7 @@ export type CalendarBooking = {
   clientName: string;
   clientEmail: string;
   locationLabel: string;
+  sessionType: string;
   /** Enough to link the address to Google Maps. */
   location: { formatted: string; placeId: string | null; lat: number; lng: number };
   clientNote: string | null;
@@ -47,6 +48,9 @@ export type CalendarDay = {
 };
 
 function label(b: BookingWithRefs) {
+  // Online sessions are run from home, so the client's address is not where
+  // Toby will be — say so instead of showing it.
+  if (b.sessionType === "ONLINE") return "Online session";
   return b.location.label ? `${b.location.label} · ${b.location.formatted}` : b.location.formatted;
 }
 
@@ -68,6 +72,7 @@ export async function buildCalendarDay(date: string): Promise<CalendarDay> {
       clientName: b.client.name ?? b.client.email,
       clientEmail: b.client.email,
       locationLabel: label(b),
+      sessionType: b.sessionType,
       location: { formatted: b.location.formatted, placeId: b.location.placeId, lat: b.location.lat, lng: b.location.lng },
       clientNote: b.clientNote,
       seriesId: b.seriesId,
@@ -81,8 +86,12 @@ export async function buildCalendarDay(date: string): Promise<CalendarDay> {
   for (let i = 0; i + 1 < blocking.length; i++) {
     const a = blocking[i];
     const b = blocking[i + 1];
-    const same = coordKey(a.location) === coordKey(b.location);
-    const c = same ? { seconds: 0, meters: 0, estimated: false } : await getCommute(a.location, b.location);
+    // Use where each session is actually run from: an online session is at
+    // home, not at the client's address.
+    const aAt = sessionCoords(a.sessionType, a.location, ctx.settings.home);
+    const bAt = sessionCoords(b.sessionType, b.location, ctx.settings.home);
+    const same = coordKey(aAt) === coordKey(bAt);
+    const c = same ? { seconds: 0, meters: 0, estimated: false } : await getCommute(aAt, bAt);
     const travelMin = Math.ceil(c.seconds / 60);
     const requiredMin = same ? 0 : travelMin + ctx.settings.bufferMinutes;
     const gapMin = minutesBetween(a.endAt, b.startAt);
