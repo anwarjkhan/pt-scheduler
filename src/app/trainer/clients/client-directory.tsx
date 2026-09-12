@@ -8,8 +8,17 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { Search, X } from "lucide-react";
+import { ChevronDown, Search, X } from "lucide-react";
 import { MapLink } from "@/components/map-link";
+import {
+  DropdownMenu,
+  DropdownMenuCheckboxItem,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 export type ClientCard = {
   id: string;
@@ -38,11 +47,78 @@ const STATUS: { value: Status; label: string }[] = [
   { value: "new", label: "No sessions yet" },
 ];
 
+/**
+ * Area filter. Multi-select, because clients are often spread across several
+ * neighbouring areas and Toby wants to see them together.
+ */
+function AreaFilter({
+  areas,
+  selected,
+  onChange,
+}: {
+  areas: { id: string; label: string }[];
+  selected: string[];
+  onChange: (next: string[]) => void;
+}) {
+  const toggle = (id: string) => onChange(selected.includes(id) ? selected.filter((x) => x !== id) : [...selected, id]);
+
+  const label =
+    selected.length === 0
+      ? "All areas"
+      : selected.length === 1
+        ? (areas.find((a) => a.id === selected[0])?.label ?? "1 area")
+        : `${selected.length} areas`;
+
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger
+        render={
+          <button
+            type="button"
+            className="flex h-9 items-center gap-1.5 rounded-md border bg-transparent px-3 text-sm hover:bg-accent"
+            aria-label="Filter by area"
+          >
+            {label}
+            <ChevronDown className="h-4 w-4 text-muted-foreground" />
+          </button>
+        }
+      />
+      <DropdownMenuContent align="start" className="w-56">
+        {areas.length === 0 ? (
+          <DropdownMenuLabel className="font-normal text-muted-foreground">No areas set up yet</DropdownMenuLabel>
+        ) : (
+          <>
+            {areas.map((a) => (
+              <DropdownMenuCheckboxItem
+                key={a.id}
+                checked={selected.includes(a.id)}
+                // Keep the menu open so several areas can be ticked in one go.
+                closeOnClick={false}
+                onCheckedChange={() => toggle(a.id)}
+              >
+                {a.label}
+              </DropdownMenuCheckboxItem>
+            ))}
+            {selected.length > 0 && (
+              <>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={() => onChange([])}>Clear areas</DropdownMenuItem>
+              </>
+            )}
+          </>
+        )}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
 /** Searchable, filterable client list. All filtering is client-side — the list is small. */
 export function ClientDirectory({ clients, areas, tz }: { clients: ClientCard[]; areas: { id: string; label: string }[]; tz: string }) {
   const [q, setQ] = useState("");
   const [status, setStatus] = useState<Status>("all");
-  const [area, setArea] = useState("all");
+  // Empty = no area filter. Otherwise a client matches if any of their
+  // locations falls in any selected area.
+  const [area, setArea] = useState<string[]>([]);
   const [sort, setSort] = useState<Sort>("name");
 
   const shown = useMemo(() => {
@@ -52,7 +128,7 @@ export function ClientDirectory({ clients, areas, tz }: { clients: ClientCard[];
         const hay = [c.name, c.email, c.phone ?? "", c.notes ?? "", ...c.locations.map((l) => `${l.label ?? ""} ${l.formatted} ${l.area ?? ""}`)].join(" ").toLowerCase();
         if (!hay.includes(needle)) return false;
       }
-      if (area !== "all" && !c.locations.some((l) => l.areaId === area)) return false;
+      if (area.length > 0 && !c.locations.some((l) => l.areaId && area.includes(l.areaId))) return false;
       switch (status) {
         case "upcoming":
           return c.upcoming.length > 0;
@@ -75,7 +151,7 @@ export function ClientDirectory({ clients, areas, tz }: { clients: ClientCard[];
     return [...list].sort(by[sort]);
   }, [clients, q, status, area, sort]);
 
-  const active = q || status !== "all" || area !== "all";
+  const active = q || status !== "all" || area.length > 0;
 
   return (
     <div className="space-y-4">
@@ -84,14 +160,7 @@ export function ClientDirectory({ clients, areas, tz }: { clients: ClientCard[];
           <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search name, email, phone, address, notes…" className="pl-8" aria-label="Search clients" />
         </div>
-        <select value={area} onChange={(e) => setArea(e.target.value)} className="h-9 rounded-md border bg-transparent px-2 text-sm" aria-label="Filter by area">
-          <option value="all">All areas</option>
-          {areas.map((a) => (
-            <option key={a.id} value={a.id}>
-              {a.label}
-            </option>
-          ))}
-        </select>
+        <AreaFilter areas={areas} selected={area} onChange={setArea} />
         <select value={sort} onChange={(e) => setSort(e.target.value as Sort)} className="h-9 rounded-md border bg-transparent px-2 text-sm" aria-label="Sort clients">
           <option value="name">Sort: name</option>
           <option value="next">Sort: next session</option>
@@ -105,7 +174,7 @@ export function ClientDirectory({ clients, areas, tz }: { clients: ClientCard[];
             onClick={() => {
               setQ("");
               setStatus("all");
-              setArea("all");
+              setArea([]);
             }}
           >
             <X className="h-4 w-4" /> Clear
