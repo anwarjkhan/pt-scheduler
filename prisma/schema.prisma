@@ -95,6 +95,21 @@ model ServiceArea {
   locations Location[]
 }
 
+/// Repeating exception: e.g. every 2nd Wednesday 12:00–14:00 unavailable, from startDate until endDate.
+/// Expanded into virtual AvailabilityException entries at read time (see getAvailability).
+model RecurringException {
+  id            String   @id @default(cuid())
+  weekday       Int // 0 = Sunday ... 6 = Saturday
+  intervalWeeks Int      @default(1)
+  startDate     String // yyyy-MM-dd — first occurrence (defines the cycle)
+  endDate       String? // yyyy-MM-dd inclusive; null = indefinitely
+  type          String // UNAVAILABLE | EXTRA
+  startTime     String?
+  endTime       String?
+  note          String?
+  createdAt     DateTime @default(now())
+}
+
 /// Weekly template. Multiple ranges per weekday allowed. Times are "HH:mm" in trainer tz.
 model AvailabilityRule {
   id        String @id @default(cuid())

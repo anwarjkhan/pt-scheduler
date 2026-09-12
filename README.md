@@ -64,7 +64,7 @@ Evaluations are re-run on the trainer side at accept time and whenever the calen
 ## Trainer configuration
 
 - **Settings**: **service areas** (towns/addresses each with their own radius — a client address must fall inside one, by driving distance), home address (start/end of the day), timezone, fallback radius (used only when no areas are defined), commute buffer, slot step, minimum notice.
-- **Availability**: weekly hours (multiple ranges per day) and dated exceptions (day off, partial day, extra hours).
+- **Availability**: weekly hours (multiple ranges per day) and exceptions (day off, partial day, extra hours) — one-off, or repeating every 1/2/4 weeks with an optional end date (stored as `RecurringException` and expanded on read).
 
 ## Deploying
 

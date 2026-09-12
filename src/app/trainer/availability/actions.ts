@@ -4,7 +4,8 @@ import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import { requireTrainer } from "@/lib/session";
-import { hhmmToMinutes } from "@/lib/scheduling";
+import { hhmmToMinutes, weekdayOf } from "@/lib/scheduling";
+import { getTrainerSettings } from "@/lib/settings";
 
 const hhmm = z.string().regex(/^\d{2}:\d{2}$/, "HH:mm");
 const range = z
@@ -55,6 +56,8 @@ export async function addException(_p: ActionState, fd: FormData): Promise<Actio
     type: z.enum(["UNAVAILABLE", "EXTRA"]),
     note: z.string().max(200).optional(),
     allDay: z.string().optional(),
+    repeat: z.enum(["0", "1", "2", "4"]).default("0"), // weeks between occurrences; 0 = one-off
+    until: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().or(z.literal("")),
   });
   const parsed = base.safeParse(raw);
   if (!parsed.success) return fail(parsed.error);
@@ -68,11 +71,35 @@ export async function addException(_p: ActionState, fd: FormData): Promise<Actio
     times = r.data;
   }
 
-  await db.availabilityException.create({
-    data: { date: d.date, type: d.type, note: d.note || null, startTime: times?.startTime ?? null, endTime: times?.endTime ?? null },
-  });
-  revalidatePath("/trainer", "layout");
+  const interval = Number(d.repeat);
+  if (interval > 0) {
+    const { timezone } = await getTrainerSettings();
+    if (d.until && d.until < d.date) return { error: "'Until' must be after the start date" };
+    await db.recurringException.create({
+      data: {
+        weekday: weekdayOf(d.date, timezone),
+        intervalWeeks: interval,
+        startDate: d.date,
+        endDate: d.until || null,
+        type: d.type,
+        note: d.note || null,
+        startTime: times?.startTime ?? null,
+        endTime: times?.endTime ?? null,
+      },
+    });
+  } else {
+    await db.availabilityException.create({
+      data: { date: d.date, type: d.type, note: d.note || null, startTime: times?.startTime ?? null, endTime: times?.endTime ?? null },
+    });
+  }
+  revalidatePath("/", "layout");
   return { ok: true };
+}
+
+export async function deleteRecurringException(id: string) {
+  await requireTrainer();
+  await db.recurringException.delete({ where: { id } });
+  revalidatePath("/", "layout");
 }
 
 export async function deleteException(id: string) {

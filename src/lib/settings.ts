@@ -1,5 +1,5 @@
 import { db } from "@/lib/db";
-import type { SchedulingSettings } from "@/lib/scheduling";
+import { addDaysKey, dateKey, weekdayOf, type SchedulingSettings } from "@/lib/scheduling";
 
 export async function getTrainerSettings() {
   return db.trainerSettings.upsert({
@@ -20,15 +20,43 @@ export function toSchedulingSettings(s: Awaited<ReturnType<typeof getTrainerSett
   };
 }
 
+export type AvailabilityException = {
+  id: string;
+  date: string;
+  type: "UNAVAILABLE" | "EXTRA";
+  startTime: string | null;
+  endTime: string | null;
+  note: string | null;
+  /** Set when this entry was generated from a RecurringException (not individually deletable). */
+  recurringId?: string;
+};
+
+/** How far ahead open-ended recurring exceptions are expanded. */
+const RECURRING_HORIZON_DAYS = 400;
+
 export async function getAvailability() {
-  const [rules, exceptions] = await Promise.all([
+  const [rules, exceptions, recurring, settings] = await Promise.all([
     db.availabilityRule.findMany({ orderBy: [{ weekday: "asc" }, { startTime: "asc" }] }),
     db.availabilityException.findMany({ orderBy: { date: "asc" } }),
+    db.recurringException.findMany({ orderBy: { createdAt: "asc" } }),
+    getTrainerSettings(),
   ]);
-  return {
-    rules,
-    exceptions: exceptions.map((e) => ({ ...e, type: e.type as "UNAVAILABLE" | "EXTRA" })),
-  };
+
+  const out: AvailabilityException[] = exceptions.map((e) => ({ ...e, type: e.type as "UNAVAILABLE" | "EXTRA" }));
+  const tz = settings.timezone;
+  const horizon = addDaysKey(dateKey(new Date(), tz), RECURRING_HORIZON_DAYS, tz);
+  for (const r of recurring) {
+    // Walk from the anchor date in steps of intervalWeeks until the end date / horizon.
+    let date = r.startDate;
+    for (let i = 0; i < 7 && weekdayOf(date, tz) !== r.weekday; i++) date = addDaysKey(date, 1, tz);
+    const last = r.endDate && r.endDate < horizon ? r.endDate : horizon;
+    while (date <= last) {
+      out.push({ id: `rec:${r.id}:${date}`, date, type: r.type as "UNAVAILABLE" | "EXTRA", startTime: r.startTime, endTime: r.endTime, note: r.note, recurringId: r.id });
+      date = addDaysKey(date, 7 * r.intervalWeeks, tz);
+    }
+  }
+  out.sort((a, b) => a.date.localeCompare(b.date));
+  return { rules, exceptions: out, recurring };
 }
 
 export async function getSchedulingSettings() {
