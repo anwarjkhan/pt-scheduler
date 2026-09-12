@@ -33,7 +33,7 @@ export function SingleActions({ id }: { id: string }) {
       <Button size="sm" variant="outline" onClick={() => run(() => declineBooking(id, reason))} disabled={pending}>
         Decline
       </Button>
-      {msg && <span className="text-xs text-amber-700">{msg}</span>}
+      {msg && <span className="text-xs text-[#b45200]">{msg}</span>}
     </div>
   );
 }
@@ -56,7 +56,7 @@ export function SeriesActions({ seriesId, occurrences }: { seriesId: string; occ
         {occurrences.map((o) => (
           <li key={o.id} className="flex items-center gap-2 text-sm">
             <input type="checkbox" checked={!skip.has(o.id)} onChange={() => toggle(o.id)} id={`occ-${o.id}`} />
-            <label htmlFor={`occ-${o.id}`} className={o.warning ? "text-red-700" : ""}>
+            <label htmlFor={`occ-${o.id}`} className={o.warning ? "text-destructive" : ""}>
               {o.label}
               {o.warning && " ⚠ tight commute"}
             </label>
@@ -71,7 +71,7 @@ export function SeriesActions({ seriesId, occurrences }: { seriesId: string; occ
         <Button size="sm" variant="outline" onClick={() => run(() => declineSeries(seriesId, reason))} disabled={pending}>
           Decline series
         </Button>
-        {msg && <span className="text-xs text-amber-700">{msg}</span>}
+        {msg && <span className="text-xs text-[#b45200]">{msg}</span>}
       </div>
     </div>
   );

@@ -90,7 +90,7 @@ function PlacesInput({
           onSelect(null); // typed text isn't a selection until chosen from the dropdown
         }}
       />
-      {text && !value && <p className="text-xs text-amber-600">Pick an address from the suggestions.</p>}
+      {text && !value && <p className="text-xs text-[#b45200]">Pick an address from the suggestions.</p>}
     </div>
   );
 }

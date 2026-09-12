@@ -48,7 +48,7 @@ export default async function RequestsPage() {
       {[...seriesMap.entries()].map(([seriesId, occ]) => {
         const first = occ[0];
         return (
-          <Card key={seriesId} className="border-amber-300">
+          <Card key={seriesId} className="border-tjm-orange/60">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Repeat className="h-4 w-4" /> Weekly series · {first.client.name ?? first.client.email}
@@ -80,7 +80,7 @@ export default async function RequestsPage() {
       {singles.map((b) => {
         const ev = evals.get(b.id)!;
         return (
-          <Card key={b.id} className={ev.warning ? "border-red-300" : "border-amber-300"}>
+          <Card key={b.id} className={ev.warning ? "border-destructive/60" : "border-tjm-orange/60"}>
             <CardHeader>
               <CardTitle>
                 {when(b.startAt)} · {b.durationMin} min · {b.client.name ?? b.client.email}

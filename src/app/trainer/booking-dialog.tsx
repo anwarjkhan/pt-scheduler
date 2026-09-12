@@ -73,7 +73,7 @@ export function BookingDialog({ booking: b, onClose }: { booking: CalendarBookin
           </div>
         )}
 
-        {msg && <p className="text-sm text-amber-700">{msg}</p>}
+        {msg && <p className="text-sm text-[#b45200]">{msg}</p>}
 
         <DialogFooter className="flex-wrap gap-2">
           {isPending && (

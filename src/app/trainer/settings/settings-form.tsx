@@ -93,7 +93,7 @@ export function SettingsForm({
         <Button type="submit" disabled={pending}>
           {pending ? "Saving…" : "Save settings"}
         </Button>
-        {state.ok && <span className="text-sm text-green-600">Saved.</span>}
+        {state.ok && <span className="text-sm text-[#5f6600]">Saved.</span>}
         {state.error && <span className="text-sm text-destructive">{state.error}</span>}
       </div>
     </form>

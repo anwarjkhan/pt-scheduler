@@ -24,7 +24,7 @@ export function LocationForm({ onCreated }: { onCreated?: (id: string) => void }
         {pending ? "Checking distance…" : "Save location"}
       </Button>
       {state.error && <p className="text-sm text-destructive">{state.error}</p>}
-      {state.ok && <p className="text-sm text-green-600">Saved.</p>}
+      {state.ok && <p className="text-sm text-[#5f6600]">Saved.</p>}
     </form>
   );
 }

@@ -120,11 +120,12 @@ export function BookingWizard({ locations, todayKey }: { locations: Location[]; 
               const d = parseISO(day.date);
               const past = day.date < todayKey;
               return (
-                <div key={day.date} className={cn("rounded-md border p-2", past && "opacity-50")}>
-                  <div className="mb-2 text-center">
-                    <div className="text-xs uppercase text-muted-foreground">{format(d, "EEE")}</div>
-                    <div className="text-lg font-semibold">{format(d, "d")}</div>
+                <div key={day.date} className={cn("overflow-hidden rounded-md border bg-card", past && "opacity-50")}>
+                  <div className="mb-2 bg-tjm-charcoal py-1.5 text-center text-white">
+                    <div className="font-heading text-[11px] uppercase text-white/60">{format(d, "EEE")}</div>
+                    <div className="font-heading text-lg font-semibold">{format(d, "d")}</div>
                   </div>
+                  <div className="px-2 pb-2">
                   {past ? (
                     <p className="text-center text-xs text-muted-foreground">Past</p>
                   ) : !day.open ? (
@@ -140,7 +141,7 @@ export function BookingWizard({ locations, todayKey }: { locations: Location[]; 
                           onClick={() => setSelected({ day, slot: s })}
                           className={cn(
                             "flex items-center justify-center gap-1 rounded-md border px-2 py-1 text-sm hover:bg-accent",
-                            s.evaluation.warning && "border-amber-400 bg-amber-50 text-amber-900 dark:bg-amber-950 dark:text-amber-200",
+                            s.evaluation.warning && "border-tjm-orange bg-[#fff1e6] text-[#7a3600] dark:bg-tjm-orange/20 dark:text-orange-100",
                           )}
                           title={s.evaluation.warning ? "Tight commute — will be flagged for your trainer" : undefined}
                         >
@@ -150,14 +151,15 @@ export function BookingWizard({ locations, todayKey }: { locations: Location[]; 
                       ))}
                     </div>
                   )}
+                  </div>
                 </div>
               );
             },
           )}
         </div>
         <p className="mt-2 text-xs text-muted-foreground">
-          <AlertTriangle className="mr-1 inline h-3 w-3 text-amber-500" />
-          Amber slots leave your trainer little travel time from the previous session — you can still request them, but they may be declined.
+          <AlertTriangle className="mr-1 inline h-3 w-3 text-tjm-orange" />
+          Orange slots leave your trainer little travel time from the previous session — you can still request them, but they may be declined.
         </p>
       </div>
 
@@ -267,7 +269,7 @@ function ConfirmDialog({
                     <span>{format(parseISO(o.date), "EEE d MMM")}</span>
                     <Badge
                       variant={o.status === "ok" ? "secondary" : o.status === "warning" ? "outline" : "destructive"}
-                      className={cn(o.status === "warning" && "border-amber-400 text-amber-700")}
+                      className={cn(o.status === "warning" && "border-tjm-orange text-[#b45200]")}
                     >
                       {o.status === "ok" ? "Available" : o.status === "warning" ? "Tight commute" : o.status === "taken" ? "Taken — skipped" : "Trainer off — skipped"}
                     </Badge>

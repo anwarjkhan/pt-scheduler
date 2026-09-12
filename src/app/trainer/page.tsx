@@ -63,12 +63,12 @@ export default async function TrainerCalendarPage({ searchParams }: PageProps<"/
       {(pendingCount > 0 || tightCount > 0) && (
         <div className="flex flex-wrap gap-3 text-sm">
           {pendingCount > 0 && (
-            <Link href="/trainer/requests" className="rounded-md border border-amber-400 bg-amber-50 px-3 py-1.5 text-amber-900 dark:bg-amber-950 dark:text-amber-100">
+            <Link href="/trainer/requests" className="rounded-md border border-tjm-orange bg-tjm-orange/10 px-3 py-1.5 font-heading font-semibold text-[#7a3600] dark:text-orange-100">
               {pendingCount} pending request{pendingCount === 1 ? "" : "s"} →
             </Link>
           )}
           {tightCount > 0 && (
-            <span className="rounded-md border border-red-400 bg-red-50 px-3 py-1.5 text-red-900 dark:bg-red-950 dark:text-red-100">
+            <span className="rounded-md border border-destructive bg-destructive/10 px-3 py-1.5 font-heading font-semibold text-destructive">
               {tightCount} tight commute{tightCount === 1 ? "" : "s"} this {view}
             </span>
           )}
@@ -78,10 +78,10 @@ export default async function TrainerCalendarPage({ searchParams }: PageProps<"/
       <CalendarGrid days={days} todayKey={todayKey} />
 
       <div className="flex flex-wrap gap-4 text-xs text-muted-foreground">
-        <span><span className="mr-1 inline-block h-3 w-3 rounded-sm border border-amber-400 bg-amber-50 align-middle" />Pending</span>
-        <span><span className="mr-1 inline-block h-3 w-3 rounded-sm border border-green-500 bg-green-50 align-middle" />Confirmed</span>
-        <span><span className="mr-1 inline-block h-3 w-3 rounded-sm bg-sky-500/15 align-middle" />Drive time</span>
-        <span><span className="mr-1 inline-block h-3 w-3 rounded-sm bg-red-500/25 align-middle" />Not enough travel time</span>
+        <span><span className="mr-1 inline-block h-3 w-3 rounded-sm border border-tjm-orange bg-[#fff1e6] align-middle" />Pending</span>
+        <span><span className="mr-1 inline-block h-3 w-3 rounded-sm border border-tjm-lime bg-[#f5f8d6] align-middle" />Confirmed</span>
+        <span><span className="mr-1 inline-block h-3 w-3 rounded-sm bg-tjm-charcoal/15 align-middle" />Drive time</span>
+        <span><span className="mr-1 inline-block h-3 w-3 rounded-sm bg-destructive/30 align-middle" />Not enough travel time</span>
         <span><span className="mr-1 inline-block h-3 w-3 rounded-sm bg-muted align-middle" />Outside working hours</span>
       </div>
     </div>

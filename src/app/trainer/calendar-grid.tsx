@@ -11,8 +11,8 @@ import { AlertTriangle, Car } from "lucide-react";
 const PX_PER_MIN = 1.1;
 
 const STATUS_STYLE: Record<string, string> = {
-  PENDING: "border-amber-400 bg-amber-50 text-amber-900 dark:bg-amber-950/60 dark:text-amber-100",
-  ACCEPTED: "border-green-500 bg-green-50 text-green-900 dark:bg-green-950/60 dark:text-green-100",
+  PENDING: "border-tjm-orange bg-[#fff1e6] text-[#7a3600] dark:bg-tjm-orange/20 dark:text-orange-100",
+  ACCEPTED: "border-tjm-lime bg-[#f5f8d6] text-[#3e4300] dark:bg-tjm-lime/20 dark:text-lime-100",
   DECLINED: "border-dashed opacity-40",
   CANCELLED_BY_CLIENT: "border-dashed opacity-40 line-through",
   CANCELLED_BY_TRAINER: "border-dashed opacity-40 line-through",
@@ -84,9 +84,9 @@ export function CalendarGrid({ days, todayKey }: { days: CalendarDay[]; todayKey
           const visible = day.bookings.filter((b) => b.status !== "DECLINED");
           return (
             <div key={day.date} className="relative min-w-0 flex-1 border-r last:border-r-0">
-              <div className={cn("sticky top-0 z-10 h-10 border-b bg-card px-2 py-1 text-center", isToday && "bg-primary/5")}>
-                <div className="text-[11px] uppercase text-muted-foreground">{format(d, "EEE")}</div>
-                <div className={cn("text-sm font-semibold", isToday && "text-primary")}>{format(d, "d MMM")}</div>
+              <div className={cn("sticky top-0 z-10 h-10 border-b bg-tjm-charcoal px-2 py-1 text-center text-white", isToday && "bg-tjm-ink")}>
+                <div className="font-heading text-[11px] uppercase text-white/60">{format(d, "EEE")}</div>
+                <div className={cn("font-heading text-sm font-semibold", isToday && "text-tjm-yellow")}>{format(d, "d MMM")}</div>
               </div>
               <div className="relative bg-muted/40" style={{ height }}>
                 {/* open windows */}
@@ -111,7 +111,7 @@ export function CalendarGrid({ days, todayKey }: { days: CalendarDay[]; todayKey
                       key={s.fromId + s.toId}
                       className={cn(
                         "absolute left-1 right-1 z-[1] flex items-center justify-center gap-1 overflow-hidden rounded-sm text-[10px] leading-none",
-                        tight ? "bg-red-500/25 text-red-800 dark:text-red-200" : "bg-sky-500/15 text-sky-800 dark:text-sky-200",
+                        tight ? "bg-destructive/30 text-[#7a2a00] dark:text-orange-200" : "bg-tjm-charcoal/15 text-tjm-charcoal dark:bg-white/10 dark:text-white/80",
                       )}
                       style={{ top, height: Math.max(h, 2) }}
                       title={
@@ -138,7 +138,7 @@ export function CalendarGrid({ days, todayKey }: { days: CalendarDay[]; todayKey
                     className={cn(
                       "absolute z-[2] overflow-hidden rounded-md border px-1.5 py-0.5 text-left text-xs shadow-sm hover:brightness-95",
                       STATUS_STYLE[b.status] ?? "",
-                      b.evaluation.warning && ["PENDING", "ACCEPTED"].includes(b.status) && "ring-2 ring-red-500",
+                      b.evaluation.warning && ["PENDING", "ACCEPTED"].includes(b.status) && "ring-2 ring-destructive",
                     )}
                     style={{
                       top: y(b.startTime),
@@ -148,7 +148,7 @@ export function CalendarGrid({ days, todayKey }: { days: CalendarDay[]; todayKey
                     }}
                   >
                     <div className="flex items-center gap-1 font-medium">
-                      {b.evaluation.warning && <AlertTriangle className="h-3 w-3 shrink-0 text-red-600" />}
+                      {b.evaluation.warning && <AlertTriangle className="h-3 w-3 shrink-0 text-destructive" />}
                       <span className="truncate">{b.clientName}</span>
                     </div>
                     <div className="truncate opacity-80">
