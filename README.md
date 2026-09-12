@@ -38,11 +38,10 @@ npm run dev
 | `AUTH_GOOGLE_ID` / `AUTH_GOOGLE_SECRET` | OAuth 2.0 client from Google Cloud. Redirect URI: `http://localhost:3000/api/auth/callback/google` (and your production URL). |
 | `AUTH_APPLE_ID` / `AUTH_APPLE_SECRET` | Optional Sign in with Apple. `AUTH_APPLE_ID` is your Services ID; `AUTH_APPLE_SECRET` is the client-secret JWT built from your Team ID, Key ID and `.p8` key (Auth.js docs: providers/apple). The Apple button is disabled until both are set. |
 | `PT_EMAIL` | The Google account that becomes the trainer on first sign-in. Everyone else is a client. |
-| `GOOGLE_MAPS_SERVER_KEY` | Enable **Distance Matrix API** and **Geocoding API**. Restrict by IP. |
-| `NEXT_PUBLIC_GOOGLE_MAPS_BROWSER_KEY` | Enable **Maps JavaScript API** and **Places API**. Restrict by HTTP referrer. |
+| `GOOGLE_MAPS_SERVER_KEY` | Optional. Enable **Distance Matrix API** and **Geocoding API**. Restrict by IP. Used for drive times and for the address/postcode lookup. |
 | `DEV_LOGIN` | `true` enables a password-less dev login form on the sign-in page (ignored in production). |
 
-**Without Maps keys** the app still runs: address entry falls back to manual lat/lng fields, and commute times are estimated from straight-line distance (marked "estimated" in the UI). Results are cached in `CommuteCache` and refreshed once real keys are present.
+**Without a Maps key** the app still runs: the address/postcode lookup uses free UK sources ([postcodes.io](https://postcodes.io) for postcodes, OpenStreetMap Nominatim for street addresses), and commute times are estimated from straight-line distance (marked "estimated" in the UI). Results are cached in `CommuteCache` and refreshed once a real key is present.
 
 ### Demo data
 
