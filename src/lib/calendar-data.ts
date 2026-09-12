@@ -14,6 +14,8 @@ export type CalendarBooking = {
   clientName: string;
   clientEmail: string;
   locationLabel: string;
+  /** Enough to link the address to Google Maps. */
+  location: { formatted: string; placeId: string | null; lat: number; lng: number };
   clientNote: string | null;
   seriesId: string | null;
   evaluation: SlotEvaluation;
@@ -66,6 +68,7 @@ export async function buildCalendarDay(date: string): Promise<CalendarDay> {
       clientName: b.client.name ?? b.client.email,
       clientEmail: b.client.email,
       locationLabel: label(b),
+      location: { formatted: b.location.formatted, placeId: b.location.placeId, lat: b.location.lat, lng: b.location.lng },
       clientNote: b.clientNote,
       seriesId: b.seriesId,
       evaluation,

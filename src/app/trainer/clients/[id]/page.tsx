@@ -5,7 +5,8 @@ import { db } from "@/lib/db";
 import { getSchedulingSettings } from "@/lib/settings";
 import { StatusBadge } from "@/components/status-badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Mail, MapPin, Phone, Repeat, StickyNote } from "lucide-react";
+import { Mail, Phone, Repeat, StickyNote } from "lucide-react";
+import { MapLink } from "@/components/map-link";
 
 /** Past accepted sessions read as completed in history; everything else keeps its stored status. */
 function displayStatus(status: string, endAt: Date, now: Date) {
@@ -93,7 +94,7 @@ export default async function ClientHistoryPage({ params }: PageProps<"/trainer/
             <ul className="space-y-1">
               {client.locations.map((l) => (
                 <li key={l.id} className="flex items-center gap-2 text-muted-foreground">
-                  <MapPin className="h-4 w-4" /> {l.label ? `${l.label} · ` : ""}
+                  <MapLink target={l} className="h-4 w-4" label={l.label ?? l.formatted} /> {l.label ? `${l.label} · ` : ""}
                   {l.formatted}
                 </li>
               ))}
@@ -140,7 +141,8 @@ function SessionList({
           </div>
           <div className="min-w-0 flex-1 text-muted-foreground">
             <div className="flex items-center gap-1">
-              <MapPin className="h-3.5 w-3.5 shrink-0" /> <span className="truncate">{b.location.label ?? b.location.formatted}</span>
+              <MapLink target={b.location} className="h-3.5 w-3.5" label={b.location.label ?? b.location.formatted} />{" "}
+              <span className="truncate">{b.location.label ?? b.location.formatted}</span>
             </div>
             {b.clientNote && <div className="mt-0.5 text-xs">Client: {b.clientNote}</div>}
             {b.trainerNote && <div className="mt-0.5 text-xs">You: {b.trainerNote}</div>}

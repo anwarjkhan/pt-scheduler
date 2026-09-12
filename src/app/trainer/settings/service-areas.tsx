@@ -7,7 +7,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { MapPin, Pencil, Trash2 } from "lucide-react";
+import { Pencil, Trash2 } from "lucide-react";
+import { MapLink } from "@/components/map-link";
 
 export type ServiceAreaRow = {
   id: string;
@@ -50,7 +51,7 @@ export function ServiceAreas({ areas, fallbackMiles }: { areas: ServiceAreaRow[]
                   </li>
                 ) : (
                   <li key={a.id} className="flex items-center gap-3 px-3 py-2 text-sm">
-                    <MapPin className="h-4 w-4 shrink-0 text-tjm-orange" />
+                    <MapLink target={a} className="h-4 w-4 text-tjm-orange" label={a.label} />
                     <div className="min-w-0 flex-1">
                       <div className="font-heading font-semibold">
                         {a.label} <span className="font-normal text-muted-foreground">· within {a.radiusMiles} mi</span>

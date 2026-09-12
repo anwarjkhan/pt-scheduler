@@ -11,7 +11,8 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { MapPin, Repeat, StickyNote, User } from "lucide-react";
+import { Repeat, StickyNote, User } from "lucide-react";
+import { MapLink } from "@/components/map-link";
 
 export function BookingDialog({ booking: b, onClose }: { booking: CalendarBooking; onClose: () => void }) {
   const router = useRouter();
@@ -50,7 +51,7 @@ export function BookingDialog({ booking: b, onClose }: { booking: CalendarBookin
             <span className="text-muted-foreground">({b.clientEmail})</span>
           </div>
           <div className="flex items-center gap-2">
-            <MapPin className="h-4 w-4 text-muted-foreground" /> {b.locationLabel}
+            <MapLink target={b.location} className="h-4 w-4" label={b.locationLabel} /> {b.locationLabel}
           </div>
           {b.seriesId && (
             <div className="flex items-center gap-2 text-muted-foreground">

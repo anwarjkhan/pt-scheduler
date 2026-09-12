@@ -8,7 +8,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { MapPin, Search, X } from "lucide-react";
+import { Search, X } from "lucide-react";
+import { MapLink } from "@/components/map-link";
 
 export type ClientCard = {
   id: string;
@@ -17,7 +18,7 @@ export type ClientCard = {
   phone: string | null;
   emergencyContact: string | null;
   notes: string | null;
-  locations: { label: string | null; formatted: string; areaId: string | null; area: string | null }[];
+  locations: { label: string | null; formatted: string; placeId: string | null; lat: number; lng: number; areaId: string | null; area: string | null }[];
   upcoming: { startAt: string; status: string; durationMin: number; place: string }[];
   pendingCount: number;
   completedCount: number;
@@ -175,7 +176,7 @@ export function ClientDirectory({ clients, areas, tz }: { clients: ClientCard[];
                   <ul className="text-muted-foreground">
                     {c.locations.map((l, i) => (
                       <li key={i} className="flex items-center gap-1">
-                        <MapPin className="h-3.5 w-3.5 shrink-0" />
+                        <MapLink target={l} className="h-3.5 w-3.5" label={l.label ?? l.formatted} />
                         <span className="truncate">
                           {l.label ? `${l.label} · ` : ""}
                           {l.formatted}

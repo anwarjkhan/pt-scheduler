@@ -6,6 +6,7 @@ import { deleteLocation } from "./actions";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Trash2 } from "lucide-react";
+import { MapLink } from "@/components/map-link";
 
 export default async function LocationsPage() {
   const user = await requireUser();
@@ -34,6 +35,7 @@ export default async function LocationsPage() {
               <ul className="divide-y">
                 {locations.map((l) => (
                   <li key={l.id} className="flex items-center gap-3 py-2">
+                    <MapLink target={l} className="h-4 w-4" label={l.label ?? l.formatted} />
                     <div className="flex-1">
                       {l.label && <div className="text-sm font-medium">{l.label}</div>}
                       <div className="text-sm text-muted-foreground">{l.formatted}</div>

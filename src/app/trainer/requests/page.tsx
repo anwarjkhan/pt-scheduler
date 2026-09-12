@@ -6,7 +6,8 @@ import { dateKey, type SlotEvaluation } from "@/lib/scheduling";
 import { CommuteSummary } from "@/components/commute-summary";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { SeriesActions, SingleActions } from "./request-actions";
-import { MapPin, Repeat, StickyNote } from "lucide-react";
+import { Repeat, StickyNote } from "lucide-react";
+import { MapLink } from "@/components/map-link";
 
 export default async function RequestsPage() {
   const settings = await getSchedulingSettings();
@@ -60,7 +61,8 @@ export default async function RequestsPage() {
             </CardHeader>
             <CardContent className="space-y-3">
               <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <MapPin className="h-4 w-4" /> {first.location.label ? `${first.location.label} · ` : ""}
+                <MapLink target={first.location} className="h-4 w-4" label={first.location.label ?? first.location.formatted} />{" "}
+                {first.location.label ? `${first.location.label} · ` : ""}
                 {first.location.formatted}
               </div>
               {first.clientNote && (
@@ -86,7 +88,8 @@ export default async function RequestsPage() {
                 {when(b.startAt)} · {b.durationMin} min · {b.client.name ?? b.client.email}
               </CardTitle>
               <CardDescription className="flex items-center gap-1">
-                <MapPin className="h-3.5 w-3.5" /> {b.location.label ? `${b.location.label} · ` : ""}
+                <MapLink target={b.location} className="h-3.5 w-3.5" label={b.location.label ?? b.location.formatted} />{" "}
+                {b.location.label ? `${b.location.label} · ` : ""}
                 {b.location.formatted}
               </CardDescription>
             </CardHeader>

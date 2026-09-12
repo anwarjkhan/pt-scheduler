@@ -9,7 +9,8 @@ import { CancelButton } from "./cancel-button";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { MapPin, Repeat } from "lucide-react";
+import { Repeat } from "lucide-react";
+import { MapLink } from "@/components/map-link";
 
 export default async function ClientHome({ searchParams }: PageProps<"/app">) {
   const user = await requireUser();
@@ -57,7 +58,7 @@ export default async function ClientHome({ searchParams }: PageProps<"/app">) {
                     </div>
                   </div>
                   <div className="flex flex-1 items-center gap-1 text-sm text-muted-foreground">
-                    <MapPin className="h-4 w-4 shrink-0" />
+                    <MapLink target={b.location} className="h-4 w-4" label={b.location.label ?? b.location.formatted} />
                     <span className="truncate">{b.location.label ?? b.location.formatted}</span>
                     {b.seriesId && <Repeat className="ml-1 h-3.5 w-3.5" aria-label="Weekly series" />}
                   </div>
