@@ -87,16 +87,17 @@ export function MeetToby() {
 export function KindWords() {
   return (
     <section id="kind-words" className="relative isolate scroll-mt-20 overflow-hidden text-white">
-      <Image src="/site/class-bands.jpg" alt="" fill className="-z-20 object-cover" sizes="100vw" />
-      <div className="absolute inset-0 -z-10 bg-black/70" />
-      <div className="mx-auto max-w-4xl px-6 py-20 text-center">
-        <Reveal as="h2" className="font-heading text-3xl font-bold sm:text-5xl">
-          “{SITE.kindWords.heading}”
-        </Reveal>
-        <Reveal className="mt-10">
-          <TestimonialCarousel items={SITE.kindWords.testimonials} />
-        </Reveal>
-      </div>
+      {/* The carousel owns the backdrop: each quote has its own photo, cross-faded
+          with the quote itself. */}
+      <TestimonialCarousel
+        items={SITE.kindWords.testimonials}
+        fallbackImage="/site/class-bands.jpg"
+        heading={
+          <Reveal as="h2" className="font-heading text-3xl font-bold sm:text-5xl">
+            “{SITE.kindWords.heading}”
+          </Reveal>
+        }
+      />
     </section>
   );
 }
