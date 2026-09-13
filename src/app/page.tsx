@@ -3,10 +3,11 @@ import { auth } from "@/auth";
 import { db } from "@/lib/db";
 import { getCoverageSummary, getSchedulingSettings } from "@/lib/settings";
 import { getPillars } from "@/lib/pillars";
+import { getSocialPosts } from "@/lib/social";
 import { dateKey } from "@/lib/scheduling";
 import { SiteHeader } from "@/components/site/site-header";
 import { SiteFooter } from "@/components/site/site-footer";
-import { Areas, Contact, Hero, Intro, KindWords, MeetToby, Partners, TrainingOptions } from "@/components/site/sections";
+import { Areas, Contact, FromInstagram, Hero, Intro, KindWords, MeetToby, Partners, TrainingOptions } from "@/components/site/sections";
 import { BookingWizard } from "@/app/app/book/booking-wizard";
 import { TrainerCalendarView } from "@/app/trainer/calendar-view";
 import { StatusBadge } from "@/components/status-badge";
@@ -15,7 +16,12 @@ import { formatInTimeZone } from "date-fns-tz";
 
 export default async function Home({ searchParams }: PageProps<"/">) {
   const sp = await searchParams;
-  const [user, coverage, pillars] = await Promise.all([auth().then((s) => s?.user), getCoverageSummary(), getPillars()]);
+  const [user, coverage, pillars, posts] = await Promise.all([
+    auth().then((s) => s?.user),
+    getCoverageSummary(),
+    getPillars(),
+    getSocialPosts(),
+  ]);
 
   return (
     <>
@@ -25,6 +31,7 @@ export default async function Home({ searchParams }: PageProps<"/">) {
         <Intro />
         <MeetToby />
         <KindWords />
+        <FromInstagram posts={posts} />
         <TrainingOptions signedIn={!!user} />
         <Partners />
         <Areas covered={coverage.areas} />

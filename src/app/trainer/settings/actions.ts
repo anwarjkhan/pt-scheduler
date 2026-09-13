@@ -179,3 +179,61 @@ export async function movePillar(id: string, direction: "up" | "down") {
   await db.$transaction(all.map((p, k) => db.pillar.update({ where: { id: p.id }, data: { sortOrder: k } })));
   revalidatePath("/", "layout");
 }
+
+// ---------- Instagram clips ----------
+
+/**
+ * URLs are stored as given and rendered straight into <img>/<video>, so only
+ * http(s) is accepted — no data: or javascript: sneaking into the markup.
+ */
+const httpUrl = z
+  .string()
+  .trim()
+  .url("Must be a URL")
+  .refine((u) => /^https?:\/\//i.test(u), "Must start with http:// or https://");
+
+const socialSchema = z.object({
+  caption: z.string().trim().min(1, "Caption is required").max(300),
+  posterUrl: httpUrl,
+  videoUrl: z.union([httpUrl, z.literal("")]).optional(),
+  permalink: httpUrl.refine((u) => /instagram\.com/i.test(u), "Must be an instagram.com link"),
+});
+
+export async function addSocialPost(_prev: SettingsState, fd: FormData): Promise<SettingsState> {
+  await requireTrainer();
+  const parsed = socialSchema.safeParse(Object.fromEntries(fd));
+  if (!parsed.success) return { error: parsed.error.issues.map((i) => i.message).join("; ") };
+  const last = await db.socialPost.findFirst({ orderBy: { sortOrder: "desc" }, select: { sortOrder: true } });
+  await db.socialPost.create({
+    data: { ...parsed.data, videoUrl: parsed.data.videoUrl || null, sortOrder: (last?.sortOrder ?? -1) + 1 },
+  });
+  revalidatePath("/", "layout");
+  return { ok: true };
+}
+
+export async function updateSocialPost(id: string, _prev: SettingsState, fd: FormData): Promise<SettingsState> {
+  await requireTrainer();
+  const parsed = socialSchema.safeParse(Object.fromEntries(fd));
+  if (!parsed.success) return { error: parsed.error.issues.map((i) => i.message).join("; ") };
+  await db.socialPost.update({ where: { id }, data: { ...parsed.data, videoUrl: parsed.data.videoUrl || null } });
+  revalidatePath("/", "layout");
+  return { ok: true };
+}
+
+export async function deleteSocialPost(id: string) {
+  await requireTrainer();
+  await db.socialPost.delete({ where: { id } });
+  revalidatePath("/", "layout");
+}
+
+/** Move one clip up or down in the grid. */
+export async function moveSocialPost(id: string, direction: "up" | "down") {
+  await requireTrainer();
+  const all = await db.socialPost.findMany({ orderBy: [{ sortOrder: "asc" }, { createdAt: "desc" }], select: { id: true } });
+  const i = all.findIndex((p) => p.id === id);
+  const j = direction === "up" ? i - 1 : i + 1;
+  if (i === -1 || j < 0 || j >= all.length) return;
+  [all[i], all[j]] = [all[j], all[i]];
+  await db.$transaction(all.map((p, k) => db.socialPost.update({ where: { id: p.id }, data: { sortOrder: k } })));
+  revalidatePath("/", "layout");
+}

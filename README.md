@@ -15,6 +15,74 @@ The tjmtraining.com marketing site rebuilt in Next.js, with an integrated bookin
 
 **The trainer** sets a weekly availability template and per-date exceptions, reviews requests, and accepts/declines them (whole series at once, with per-occurrence overrides). The calendar draws drive time between consecutive sessions and flags any gap that's too short for the commute.
 
+## Online sessions
+
+Clients can request a session as **in-person** or **online**. An online session is
+still scheduled against the trainer's home coordinates — it occupies real time in the
+day and the commute engine reserves the drive back from the preceding session — but it
+is delivered over video instead of at the client's address.
+
+Video is [Daily.co](https://daily.co). Media flows browser-to-browser via Daily's
+servers and never through this app, which only decides **who** may enter **which** room
+and **when**:
+
+- A **private room** is created per booking (`VideoRoom`), bounded to the session: nobody
+  can connect before it opens, and Daily ejects everyone and deletes the room when it
+  closes. One-off sessions get a room when the trainer accepts; weekly series create
+  theirs on first join, so cancelled occurrences never leave rooms behind. Cancelling or
+  moving a session drops its room — a reschedule changes the window, so the room is
+  rebuilt on the next join.
+- **Joining** goes through `/app/session/[id]`, which authenticates the viewer, checks the
+  booking is theirs (the trainer may open any), checks the time window, and only then mints
+  a short-lived **meeting token**. The token carries `is_owner`, which is the sole
+  difference between the two sides: the trainer can admit, mute and end the call, the
+  client cannot. It is decided server-side and never by the browser.
+- The window is `JOIN_EARLY_MIN` before the start to `JOIN_LATE_MIN` after the end
+  (`src/lib/video-window.ts`, unit-tested). The same function drives the Join button on the
+  client's session list and in the trainer's calendar dialog, so they cannot disagree.
+
+Because the room URL is useless without a token, there is no shareable link to leak.
+
+### Ad-hoc sessions and guest links
+
+The trainer can also book an online session directly, without waiting for a client to
+request one — either from **New online session** above the calendar or by **clicking any
+empty space** in the day/week grid, which pre-fills that time. It is created already
+**confirmed** (the trainer booked it, so there is nobody left to accept it) and shows up
+in the client's *My sessions* like any other.
+
+Booking this way offers a **guest link** — `/join/<token>` — which the trainer can also
+produce later for any confirmed online session from its calendar dialog. It lets someone
+join **without signing in**, which is the point: the client can be sent a link over
+WhatsApp and just tap it.
+
+> **This link is a bearer credential.** Anyone holding it can join while the session is
+> open, so it should be sent only to the client. It is mitigated, not eliminated: the
+> token is unguessable, the holder joins as a **guest** (never the host — they cannot mute,
+> admit or end the call), and it only works inside the session window. It can be
+> **revoked** from the booking dialog, and cancelling or rescheduling the session
+> invalidates it automatically.
+
+Clients with no saved address can still be booked online: the session falls back to a
+home-based location, since an online session is run from the trainer's home anyway.
+
+## Instagram clips
+
+The home page carries a **From Instagram** grid between *Kind words* and *Training
+Options*: thumbnails that play their clip inline when pressed, each linking back to the
+original post.
+
+It is **curated, not synced**. Instagram has no public feed API worth depending on — the
+Graph API needs `@tjmtraining` converted to a Business/Creator account, a reviewed
+Facebook app, and a token refreshed every 60 days, and its CDN URLs expire. Toby instead
+adds clips under **Settings → Website → Instagram clips**: a caption, a thumbnail URL, an
+optional MP4 URL and the post link. Hosting the MP4 ourselves is also what allows inline
+playback in the site's own styling; Instagram's own embed renders their chrome in an
+iframe and will not autoplay or match the design.
+
+Nothing is downloaded until a visitor presses play, and a clip with no video URL shows as
+a still that links out. The whole section hides itself while the list is empty.
+
 ## Stack
 
 Next.js 16 (App Router) · TypeScript · Tailwind + shadcn/ui · Prisma (SQLite locally, Postgres in prod) · Auth.js v5 (Google) · Google Maps Distance Matrix / Geocoding / Places · Vitest.
@@ -40,6 +108,7 @@ npm run dev
 | `PT_EMAIL` | The Google account that becomes the trainer on first sign-in. Everyone else is a client. |
 | `GOOGLE_MAPS_SERVER_KEY` | Optional. Enable **Distance Matrix API** and **Geocoding API**. Restrict by IP. Used for drive times and for the address/postcode lookup. |
 | `DEV_LOGIN` | `true` enables a password-less dev login form on the sign-in page (ignored in production). |
+| `DAILY_API_KEY` | Optional. Server-only REST key from the [Daily](https://dashboard.daily.co/) dashboard, enabling video for online sessions. Without it the Join buttons stay hidden and online bookings behave exactly as before. |
 
 **Without a Maps key** the app still runs: the address/postcode lookup uses free UK sources ([postcodes.io](https://postcodes.io) for postcodes, OpenStreetMap Nominatim for street addresses), and commute times are estimated from straight-line distance (marked "estimated" in the UI). Results are cached in `CommuteCache` and refreshed once a real key is present.
 

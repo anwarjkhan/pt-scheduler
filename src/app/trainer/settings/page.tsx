@@ -4,14 +4,19 @@ import { getPillars } from "@/lib/pillars";
 import { SettingsForm } from "./settings-form";
 import { ServiceAreas } from "./service-areas";
 import { Pillars } from "./pillars";
+import { SocialPosts } from "./social-posts";
 import { SettingsTabs } from "./settings-tabs";
 
 export default async function SettingsPage() {
-  const [s, areas, pillars, pillarCount] = await Promise.all([
+  const [s, areas, pillars, pillarCount, socialPosts] = await Promise.all([
     getTrainerSettings(),
     db.serviceArea.findMany({ orderBy: { createdAt: "asc" }, select: { id: true, label: true, formatted: true, placeId: true, lat: true, lng: true, radiusMiles: true } }),
     getPillars(),
     db.pillar.count(),
+    db.socialPost.findMany({
+      orderBy: [{ sortOrder: "asc" }, { createdAt: "desc" }],
+      select: { id: true, caption: true, posterUrl: true, videoUrl: true, permalink: true },
+    }),
   ]);
   return (
     <div className="space-y-6">
@@ -33,7 +38,12 @@ export default async function SettingsPage() {
           />
         }
         areas={<ServiceAreas areas={areas} fallbackMiles={s.maxRadiusMiles} />}
-        website={<Pillars pillars={pillars} usingFallback={pillarCount === 0} />}
+        website={
+          <div className="space-y-6">
+            <Pillars pillars={pillars} usingFallback={pillarCount === 0} />
+            <SocialPosts posts={socialPosts} />
+          </div>
+        }
       />
     </div>
   );

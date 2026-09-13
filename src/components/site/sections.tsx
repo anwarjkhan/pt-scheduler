@@ -5,6 +5,8 @@ import { SITE } from "@/content/site";
 import { Button } from "@/components/ui/button";
 import { ContactForm } from "./contact-form";
 import { Reveal } from "./reveal";
+import { SocialGrid } from "./social-grid";
+import type { SocialPost } from "@/lib/social";
 import { PillarChips } from "./pillar-chips";
 import { TestimonialCarousel } from "./testimonial-carousel";
 import type { Pillar } from "@/lib/pillars";
@@ -102,6 +104,42 @@ export function KindWords() {
           </Reveal>
         }
       />
+    </section>
+  );
+}
+
+/**
+ * Recent clips from Toby's Instagram. Curated in the trainer area rather than
+ * synced — see `getSocialPosts`. Renders nothing when there are none, so the
+ * page never shows an empty grid.
+ */
+export function FromInstagram({ posts }: { posts: SocialPost[] }) {
+  if (posts.length === 0) return null;
+  return (
+    <section id="instagram" className="scroll-mt-20 bg-white">
+      <div className="mx-auto max-w-6xl px-6 py-16">
+        <Reveal as="h2" className="text-center font-heading text-3xl font-semibold sm:text-4xl">
+          From Instagram
+        </Reveal>
+        <Reveal delay={80}>
+          <p className="mx-auto mt-3 max-w-xl text-center font-light leading-relaxed text-muted-foreground">
+            Sessions, drills and progress from the last few weeks.
+          </p>
+        </Reveal>
+        <Reveal delay={160}>
+          <SocialGrid posts={posts} />
+        </Reveal>
+        <div className="mt-10 text-center">
+          <a
+            href={SITE.social.instagram}
+            target="_blank"
+            rel="noreferrer"
+            className="font-heading text-sm font-semibold uppercase tracking-wide text-tjm-charcoal underline-offset-4 hover:underline"
+          >
+            Follow on Instagram
+          </a>
+        </div>
+      </div>
     </section>
   );
 }
