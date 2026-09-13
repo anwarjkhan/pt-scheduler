@@ -6,6 +6,7 @@ import { getSchedulingSettings } from "@/lib/settings";
 import { dateKey } from "@/lib/scheduling";
 import { CalendarGrid } from "./calendar-grid";
 import { TrainerMonthGrid } from "./month-grid";
+import { NewSessionButton } from "./new-session-button";
 import { monthGrid } from "@/lib/month";
 import { getAvailability } from "@/lib/settings";
 import { getWindowsForDate, zoned } from "@/lib/scheduling";
@@ -30,7 +31,12 @@ export async function TrainerCalendarView({ sp, basePath = "/trainer" }: { sp: P
       ? [anchor]
       : Array.from({ length: 7 }, (_, i) => format(addDays(startOfWeek(parseISO(anchor), { weekStartsOn: 1 }), i), "yyyy-MM-dd"));
 
-  const [{ days }, pendingCount] = await Promise.all([buildCalendarDays(dates), db.booking.count({ where: { status: "PENDING" } })]);
+  const [{ days }, pendingCount, clientRows] = await Promise.all([
+    buildCalendarDays(dates),
+    db.booking.count({ where: { status: "PENDING" } }),
+    db.user.findMany({ where: { role: "CLIENT" }, select: { id: true, name: true, email: true }, orderBy: { name: "asc" } }),
+  ]);
+  const clients = clientRows.map((c) => ({ id: c.id, name: c.name ?? c.email }));
 
   const step = view === "day" ? 1 : 7;
   const tightCount = days.reduce((n, d) => n + d.segments.filter((s) => s.shortfallMin > 0).length, 0);
@@ -40,6 +46,7 @@ export async function TrainerCalendarView({ sp, basePath = "/trainer" }: { sp: P
       <div className="flex flex-wrap items-center gap-2">
         {basePath !== "/" && <h1 className="font-heading text-2xl font-semibold">Calendar</h1>}
         <div className="ml-auto flex items-center gap-1">
+          <NewSessionButton clients={clients} defaultDate={anchor} />
           <Button variant="outline" size="icon" nativeButton={false} render={<Link href={href(format(addDays(parseISO(anchor), -step), "yyyy-MM-dd"))} />} aria-label="Previous">
             <ChevronLeft className="h-4 w-4" />
           </Button>
@@ -86,11 +93,12 @@ export async function TrainerCalendarView({ sp, basePath = "/trainer" }: { sp: P
         </div>
       )}
 
-      <CalendarGrid days={days} todayKey={todayKey} />
+      <CalendarGrid days={days} todayKey={todayKey} clients={clients} />
 
       <div className="flex flex-wrap gap-4 text-xs text-muted-foreground">
         <span><span className="mr-1 inline-block h-3 w-3 rounded-sm border border-tjm-orange bg-[#fff1e6] align-middle" />Pending</span>
         <span><span className="mr-1 inline-block h-3 w-3 rounded-sm border border-[#166b3a] bg-tjm-confirm align-middle" />Confirmed</span>
+        <span><span className="mr-1 inline-block h-3 w-3 rounded-sm border border-[#14406f] bg-tjm-online align-middle" />Confirmed online</span>
         <span><span className="mr-1 inline-block h-3 w-3 rounded-sm bg-tjm-charcoal/15 align-middle" />Drive time</span>
         <span><span className="mr-1 inline-block h-3 w-3 rounded-sm bg-destructive/30 align-middle" />Not enough travel time</span>
         <span><span className="mr-1 inline-block h-3 w-3 rounded-sm border border-dashed border-destructive/60 bg-destructive/10 align-middle" />Cancelled</span>
@@ -121,7 +129,7 @@ async function MonthView({
   const [bookings, { rules, exceptions }, pendingCount] = await Promise.all([
     db.booking.findMany({
       where: { startAt: { gte: start, lt: end }, status: { in: ["PENDING", "ACCEPTED", "CANCELLED_BY_CLIENT", "CANCELLED_BY_TRAINER"] } },
-      select: { id: true, startAt: true, status: true, client: { select: { name: true, email: true } } },
+      select: { id: true, startAt: true, status: true, sessionType: true, client: { select: { name: true, email: true } } },
       orderBy: { startAt: "asc" },
     }),
     getAvailability(),
@@ -173,7 +181,7 @@ async function MonthView({
       <TrainerMonthGrid
         monthKey={monthKey}
         dates={dates}
-        bookings={bookings.map((b) => ({ id: b.id, startAt: b.startAt, status: b.status, clientName: b.client.name ?? b.client.email }))}
+        bookings={bookings.map((b) => ({ id: b.id, startAt: b.startAt, status: b.status, sessionType: b.sessionType, clientName: b.client.name ?? b.client.email }))}
         closedDates={closedDates}
         exceptionNotes={exceptionNotes}
         todayKey={todayKey}

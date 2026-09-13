@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { format, parseISO } from "date-fns";
@@ -11,8 +12,10 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Repeat, StickyNote, User } from "lucide-react";
+import { Repeat, StickyNote, User, Video } from "lucide-react";
 import { MapLink } from "@/components/map-link";
+import { canJoin } from "@/lib/video-window";
+import { ShareLink } from "./share-link";
 
 export function BookingDialog({ booking: b, onClose }: { booking: CalendarBooking; onClose: () => void }) {
   const router = useRouter();
@@ -30,6 +33,11 @@ export function BookingDialog({ booking: b, onClose }: { booking: CalendarBookin
     });
 
   const isPending = b.status === "PENDING";
+  // Evaluated on open — the dialog is short-lived, so a live ticker would be noise.
+  const joinable = canJoin(
+    { status: b.status, sessionType: b.sessionType, startAt: new Date(b.startAt), endAt: new Date(b.endAt) },
+    new Date(),
+  );
   const active = ["PENDING", "ACCEPTED"].includes(b.status);
   // Date shown from the trainer-tz startTime rather than the browser's local time.
   const dayLabel = format(parseISO(b.startAt.slice(0, 10)), "EEEE d MMMM");
@@ -51,7 +59,15 @@ export function BookingDialog({ booking: b, onClose }: { booking: CalendarBookin
             <span className="text-muted-foreground">({b.clientEmail})</span>
           </div>
           <div className="flex items-center gap-2">
-            <MapLink target={b.location} className="h-4 w-4" label={b.locationLabel} /> {b.locationLabel}
+            {b.sessionType === "ONLINE" ? (
+              <>
+                <Video className="h-4 w-4 text-muted-foreground" aria-hidden /> {b.locationLabel}
+              </>
+            ) : (
+              <>
+                <MapLink target={b.location} className="h-4 w-4" label={b.locationLabel} /> {b.locationLabel}
+              </>
+            )}
           </div>
           {b.seriesId && (
             <div className="flex items-center gap-2 text-muted-foreground">
@@ -66,6 +82,8 @@ export function BookingDialog({ booking: b, onClose }: { booking: CalendarBookin
         </div>
 
         {active && <CommuteSummary evaluation={b.evaluation} />}
+
+        {b.sessionType === "ONLINE" && b.status === "ACCEPTED" && <ShareLink bookingId={b.id} />}
 
         {active && (
           <div className="space-y-1">
@@ -96,6 +114,11 @@ export function BookingDialog({ booking: b, onClose }: { booking: CalendarBookin
                 </>
               )}
             </>
+          )}
+          {joinable && (
+            <Button nativeButton={false} render={<Link href={`/app/session/${b.id}`} />}>
+              <Video className="h-4 w-4" /> Join session
+            </Button>
           )}
           {b.status === "ACCEPTED" && (
             <Button variant="destructive" onClick={() => run(() => trainerCancelBooking(b.id, reason))} disabled={pending}>

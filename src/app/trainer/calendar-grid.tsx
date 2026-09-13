@@ -7,9 +7,10 @@ import type { CalendarBooking, CalendarDay } from "@/lib/calendar-data";
 import { hhmmToMinutes } from "@/lib/scheduling";
 import { cn } from "@/lib/utils";
 import { BookingDialog } from "./booking-dialog";
+import { NewSessionDialog, type ClientOption } from "./new-session-dialog";
 import { rescheduleBooking } from "./actions";
 import { useDragReschedule } from "./use-drag-reschedule";
-import { AlertTriangle, Car } from "lucide-react";
+import { AlertTriangle, Car, Video } from "lucide-react";
 
 /** Sessions that can be moved. Past and closed bookings stay put. */
 const MOVABLE = new Set(["PENDING", "ACCEPTED"]);
@@ -28,6 +29,21 @@ const STATUS_STYLE: Record<string, string> = {
   CANCELLED_BY_TRAINER: "border-dashed border-destructive/60 bg-destructive/10 text-destructive line-through",
   COMPLETED: "opacity-70",
 };
+
+/**
+ * Confirmed online sessions are blue rather than green, so the trainer can see at
+ * a glance which of the day's sessions are delivered over video.
+ *
+ * Only ACCEPTED is overridden: pending still needs to read as pending, and a
+ * cancelled session as cancelled, so those keep their status colour and rely on
+ * the video icon in the block instead.
+ */
+function blockStyle(b: CalendarBooking) {
+  if (b.sessionType === "ONLINE" && b.status === "ACCEPTED") {
+    return "border-[#14406f] bg-tjm-online text-white font-semibold shadow-md";
+  }
+  return STATUS_STYLE[b.status] ?? "";
+}
 
 /** Assign overlapping bookings to side-by-side lanes so none are hidden. */
 function layoutLanes(bookings: CalendarBooking[]) {
@@ -54,8 +70,18 @@ function layoutLanes(bookings: CalendarBooking[]) {
   return placed.map((p) => ({ ...p, lanes: lanesPerGroup.get(p.group)! }));
 }
 
-export function CalendarGrid({ days, todayKey }: { days: CalendarDay[]; todayKey: string }) {
+export function CalendarGrid({
+  days,
+  todayKey,
+  clients = [],
+}: {
+  days: CalendarDay[];
+  todayKey: string;
+  clients?: ClientOption[];
+}) {
   const [open, setOpen] = useState<CalendarBooking | null>(null);
+  // Clicking empty space opens the new-session dialog seeded with that slot.
+  const [newAt, setNewAt] = useState<{ date: string; time: string } | null>(null);
   const router = useRouter();
   const [, startMove] = useTransition();
   // Optimistic position while the server confirms; cleared on refresh or revert.
@@ -142,6 +168,22 @@ export function CalendarGrid({ days, todayKey }: { days: CalendarDay[]; todayKey
                 <div className={cn("font-heading text-sm font-semibold", isToday && "text-role")}>{format(d, "d MMM")}</div>
               </div>
               <div className="relative bg-muted/40" style={{ height }}>
+                {/* Click empty space to book an online session at that time.
+                    Sits under the bookings (z-[2]) so it never swallows their clicks. */}
+                {clients.length > 0 && (
+                  <button
+                    type="button"
+                    aria-label={`New online session on ${day.date}`}
+                    className="absolute inset-0 z-0 cursor-copy"
+                    onClick={(e) => {
+                      const rect = e.currentTarget.getBoundingClientRect();
+                      const min = minM + (e.clientY - rect.top) / PX_PER_MIN;
+                      // Snap to the nearest 15 minutes.
+                      const snapped = Math.max(minM, Math.min(maxM - 30, Math.round(min / 15) * 15));
+                      setNewAt({ date: day.date, time: minutesToHHMM(snapped) });
+                    }}
+                  />
+                )}
                 {/* open windows */}
                 {day.windows.map((w, i) => (
                   <div
@@ -222,7 +264,7 @@ export function CalendarGrid({ days, todayKey }: { days: CalendarDay[]; todayKey
                     }}
                     className={cn(
                       "absolute z-[2] overflow-hidden rounded-md border px-1.5 py-0.5 text-left text-xs shadow-sm hover:brightness-95",
-                      STATUS_STYLE[b.status] ?? "",
+                      blockStyle(b),
                       b.evaluation.warning && ["PENDING", "ACCEPTED"].includes(b.status) && "ring-2 ring-destructive",
                       movable && "cursor-grab touch-none",
                       dragging && "z-20 cursor-grabbing opacity-90 shadow-lg ring-2 ring-tjm-yellow",
@@ -236,6 +278,7 @@ export function CalendarGrid({ days, todayKey }: { days: CalendarDay[]; todayKey
                   >
                     <div className="flex items-center gap-1 font-medium">
                       {b.evaluation.warning && <AlertTriangle className="h-3 w-3 shrink-0 text-destructive" />}
+                      {b.sessionType === "ONLINE" && <Video className="h-3 w-3 shrink-0" aria-label="Online session" />}
                       <span className="truncate">{b.clientName}</span>
                     </div>
                     <div className="truncate opacity-80">
@@ -266,6 +309,17 @@ export function CalendarGrid({ days, todayKey }: { days: CalendarDay[]; todayKey
         </div>
       )}
       {open && <BookingDialog booking={open} onClose={() => setOpen(null)} />}
+      {newAt && (
+        <NewSessionDialog
+          // Remount per slot so the form re-seeds from the clicked time.
+          key={`${newAt.date}T${newAt.time}`}
+          clients={clients}
+          open
+          onClose={() => setNewAt(null)}
+          initialDate={newAt.date}
+          initialTime={newAt.time}
+        />
+      )}
     </div>
   );
 }

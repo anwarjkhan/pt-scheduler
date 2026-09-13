@@ -55,6 +55,7 @@ existing deployments — redeploy for it to take effect.
 | `PT_EMAIL` | The account promoted to trainer on first sign-in |
 | `DEV_LOGIN`, `DEMO_MODE`, `DEMO_PASSCODE` | Passcode-gated demo sign-in — see below |
 | `GOOGLE_MAPS_SERVER_KEY` | Optional; without it, postcodes.io and straight-line estimates are used |
+| `DAILY_API_KEY` | Optional; without it, online sessions book as normal but show no Join button |
 
 ## Demo access
 

@@ -7,6 +7,7 @@ import { getCommute } from "@/lib/maps";
 import { requireUser } from "@/lib/session";
 import { loadDayContext, sessionCoords, SESSION_TYPES } from "@/lib/bookings";
 import { getSchedulingSettings } from "@/lib/settings";
+import { dropRoom } from "@/lib/video";
 import {
   addMinutes,
   canClientCancel,
@@ -220,6 +221,8 @@ export async function cancelBooking(id: string, scope: "one" | "future" = "one")
     where: { id: { in: allowed.map((t) => t.id) } },
     data: { status: "CANCELLED_BY_CLIENT", cancelledAt: new Date() },
   });
+  // Tear down any video rooms these sessions had.
+  for (const t of allowed) await dropRoom(t.id);
   if (scope === "future" && b.seriesId) {
     const remaining = await db.booking.count({ where: { seriesId: b.seriesId, status: { in: ["PENDING", "ACCEPTED"] } } });
     if (remaining === 0) await db.bookingSeries.update({ where: { id: b.seriesId }, data: { status: "CANCELLED" } });

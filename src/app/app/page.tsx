@@ -4,12 +4,13 @@ import { db } from "@/lib/db";
 import { requireUser } from "@/lib/session";
 import { getSchedulingSettings } from "@/lib/settings";
 import { canClientCancel } from "@/lib/scheduling";
+import { canJoin } from "@/lib/video-window";
 import { StatusBadge } from "@/components/status-badge";
 import { CancelButton } from "./cancel-button";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Repeat } from "lucide-react";
+import { Repeat, Video } from "lucide-react";
 import { MapLink } from "@/components/map-link";
 
 export default async function ClientHome({ searchParams }: PageProps<"/app">) {
@@ -58,11 +59,25 @@ export default async function ClientHome({ searchParams }: PageProps<"/app">) {
                     </div>
                   </div>
                   <div className="flex flex-1 items-center gap-1 text-sm text-muted-foreground">
-                    <MapLink target={b.location} className="h-4 w-4" label={b.location.label ?? b.location.formatted} />
-                    <span className="truncate">{b.location.label ?? b.location.formatted}</span>
+                    {b.sessionType === "ONLINE" ? (
+                      <>
+                        <Video className="h-4 w-4" aria-hidden />
+                        <span className="truncate">Online session</span>
+                      </>
+                    ) : (
+                      <>
+                        <MapLink target={b.location} className="h-4 w-4" label={b.location.label ?? b.location.formatted} />
+                        <span className="truncate">{b.location.label ?? b.location.formatted}</span>
+                      </>
+                    )}
                     {b.seriesId && <Repeat className="ml-1 h-3.5 w-3.5" aria-label="Weekly series" />}
                   </div>
                   <StatusBadge status={b.status} />
+                  {canJoin(b, now) && (
+                    <Button nativeButton={false} size="sm" render={<Link href={`/app/session/${b.id}`} />}>
+                      <Video className="h-4 w-4" /> Join
+                    </Button>
+                  )}
                   {b.status === "CANCELLED_BY_TRAINER" && b.cancelReason && (
                     <span className="text-xs text-muted-foreground">{b.cancelReason}</span>
                   )}
@@ -89,7 +104,9 @@ export default async function ClientHome({ searchParams }: PageProps<"/app">) {
               {history.map((b) => (
                 <li key={b.id} className="flex items-center gap-3 py-2 text-sm">
                   <span className="min-w-40">{formatInTimeZone(b.startAt, tz, "EEE d MMM, HH:mm")}</span>
-                  <span className="flex-1 truncate text-muted-foreground">{b.location.label ?? b.location.formatted}</span>
+                  <span className="flex-1 truncate text-muted-foreground">
+                    {b.sessionType === "ONLINE" ? "Online session" : (b.location.label ?? b.location.formatted)}
+                  </span>
                   <StatusBadge status={b.status} />
                 </li>
               ))}

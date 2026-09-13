@@ -10,19 +10,19 @@ datasource db {
 // ---------- Auth.js ----------
 
 model User {
-  id            String    @id @default(cuid())
-  name          String?
-  email         String    @unique
-  emailVerified DateTime?
-  image         String?
-  phone         String?
-  role          String    @default("CLIENT") // CLIENT | TRAINER
-  createdAt     DateTime  @default(now())
+  id               String    @id @default(cuid())
+  name             String?
+  email            String    @unique
+  emailVerified    DateTime?
+  image            String?
+  phone            String?
+  role             String    @default("CLIENT") // CLIENT | TRAINER
+  createdAt        DateTime  @default(now())
   // Profile (editable at /account)
   emergencyContact String?
   notes            String? // parking, access, health notes for the trainer
-  notifyEmail      Boolean @default(true) // booking status emails (stored only — no mail service yet)
-  notifyReminders  Boolean @default(true) // 24h session reminders
+  notifyEmail      Boolean   @default(true) // booking status emails (stored only — no mail service yet)
+  notifyReminders  Boolean   @default(true) // 24h session reminders
 
   accounts  Account[]
   sessions  Session[]
@@ -107,6 +107,25 @@ model Pillar {
   updatedAt DateTime @updatedAt
 }
 
+/// A clip from Toby's Instagram, shown in the "From Instagram" grid on the marketing
+/// site. Curated rather than synced: Instagram has no public feed API, so Toby adds the
+/// ones worth showing. videoUrl is an MP4 served by us (inline playback, our own styling);
+/// permalink points back at the original post.
+model SocialPost {
+  id        String   @id @default(cuid())
+  caption   String
+  /// Still shown before playback; also the video's poster frame.
+  posterUrl String
+  /// MP4/WebM played inline. Null renders the tile as a still that links out.
+  videoUrl  String?
+  /// The original instagram.com post, for "View on Instagram".
+  permalink String
+  /// Manual ordering in the grid; lower first.
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
 /// Repeating exception: e.g. every 2nd Wednesday 12:00–14:00 unavailable, from startDate until endDate.
 /// Expanded into virtual AvailabilityException entries at read time (see getAvailability).
 model RecurringException {
@@ -147,15 +166,15 @@ model AvailabilityException {
 // ---------- Locations ----------
 
 model Location {
-  id        String  @id @default(cuid())
-  userId    String
-  label     String?
-  formatted String
-  placeId   String?
-  lat       Float
-  lng       Float
-  createdAt DateTime @default(now())
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id            String       @id @default(cuid())
+  userId        String
+  label         String?
+  formatted     String
+  placeId       String?
+  lat           Float
+  lng           Float
+  createdAt     DateTime     @default(now())
+  user          User         @relation(fields: [userId], references: [id], onDelete: Cascade)
   /// Which service area accepted this address (null = fallback home radius or pre-areas data).
   serviceAreaId String?
   serviceArea   ServiceArea? @relation(fields: [serviceAreaId], references: [id], onDelete: SetNull)
@@ -204,12 +223,35 @@ model Booking {
   cancelledAt  DateTime?
   createdAt    DateTime  @default(now())
 
-  client   User           @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  series   BookingSeries? @relation(fields: [seriesId], references: [id], onDelete: SetNull)
-  location Location       @relation(fields: [locationId], references: [id])
+  client    User           @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  series    BookingSeries? @relation(fields: [seriesId], references: [id], onDelete: SetNull)
+  location  Location       @relation(fields: [locationId], references: [id])
+  videoRoom VideoRoom?
 
   @@index([startAt, status])
   @@index([clientId])
+}
+
+/// A Daily.co room backing one ONLINE session. Created when the trainer accepts
+/// (or lazily on first join) and deleted when the session is cancelled or moved —
+/// the room's nbf/exp window is bound to the booking's times, so a reschedule
+/// invalidates it.
+model VideoRoom {
+  id         String   @id @default(cuid())
+  bookingId  String   @unique
+  /// Daily room name (the last path segment of roomUrl).
+  roomName   String   @unique
+  roomUrl    String
+  /// When Daily auto-deletes the room; mirrors the room's `exp`.
+  expiresAt  DateTime
+  /// Unguessable secret for the shareable guest link, when the trainer has issued
+  /// one. A bearer credential: anyone holding it can join as a guest during the
+  /// session window, so it is generated on request rather than by default and can
+  /// be revoked by clearing it.
+  guestToken String?  @unique
+  createdAt  DateTime @default(now())
+
+  booking Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
 }
 
 /// Cached Distance Matrix results keyed by rounded coordinates.

@@ -4,7 +4,7 @@ import { formatInTimeZone } from "date-fns-tz";
 import { WEEKDAY_HEADERS } from "@/lib/month";
 import { cn } from "@/lib/utils";
 
-export type MonthBooking = { id: string; startAt: Date; status: string; clientName: string };
+export type MonthBooking = { id: string; startAt: Date; status: string; sessionType: string; clientName: string };
 
 const CHIP: Record<string, string> = {
   PENDING: "border-tjm-orange bg-[#fff1e6] text-[#7a3600]",
@@ -13,6 +13,12 @@ const CHIP: Record<string, string> = {
   CANCELLED_BY_TRAINER: "border-dashed border-destructive/60 bg-destructive/10 text-destructive line-through",
 };
 const SHOWN = ["PENDING", "ACCEPTED", "CANCELLED_BY_CLIENT", "CANCELLED_BY_TRAINER"];
+
+/** Matches the day view: confirmed online sessions read blue, everything else by status. */
+function chipStyle(b: MonthBooking) {
+  if (b.sessionType === "ONLINE" && b.status === "ACCEPTED") return "border-[#14406f] bg-tjm-online text-white";
+  return CHIP[b.status];
+}
 
 /** Trainer month overview: sessions per day as status chips; each day links to its day view. */
 export function TrainerMonthGrid({
@@ -78,7 +84,7 @@ export function TrainerMonthGrid({
               </div>
               {note && inMonth && <span className="truncate rounded-sm bg-background/80 px-1 text-[10px] text-muted-foreground">{note}</span>}
               {list.slice(0, 3).map((b) => (
-                <span key={b.id} className={cn("truncate rounded-sm border px-1 font-heading text-[10px] font-semibold", CHIP[b.status])}>
+                <span key={b.id} className={cn("truncate rounded-sm border px-1 font-heading text-[10px] font-semibold", chipStyle(b))}>
                   {formatInTimeZone(b.startAt, tz, "HH:mm")} {b.clientName}
                 </span>
               ))}

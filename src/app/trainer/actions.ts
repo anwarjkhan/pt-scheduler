@@ -6,6 +6,7 @@ import { requireTrainer } from "@/lib/session";
 import { bookingInclude, evaluateExistingBooking, loadDayContext } from "@/lib/bookings";
 import { dateKey, zoned } from "@/lib/scheduling";
 import { getSchedulingSettings } from "@/lib/settings";
+import { dropRoom, provisionRoomSafely } from "@/lib/video";
 
 export type TrainerActionResult = { ok?: boolean; error?: string; warnings?: string[] };
 
@@ -28,6 +29,9 @@ export async function acceptBooking(id: string): Promise<TrainerActionResult> {
   if (ev.overlaps) return { error: "This clashes with a session you've already confirmed." };
 
   await db.booking.update({ where: { id }, data: { status: "ACCEPTED" } });
+  // One-off online sessions get their room now; a failure here is logged, not
+  // fatal — the join route recreates it on demand.
+  await provisionRoomSafely(b);
   await syncSeriesStatus(b.seriesId);
   revalidate();
   return { ok: true, warnings: ev.warning ? ["Accepted with a tight commute — check your calendar."] : [] };
@@ -38,6 +42,7 @@ export async function declineBooking(id: string, reason?: string): Promise<Train
   const b = await db.booking.findUnique({ where: { id } });
   if (!b || b.status !== "PENDING") return { error: "Booking is no longer pending." };
   await db.booking.update({ where: { id }, data: { status: "DECLINED", trainerNote: reason || null } });
+  await dropRoom(id);
   await syncSeriesStatus(b.seriesId);
   revalidate();
   return { ok: true };
@@ -52,6 +57,7 @@ export async function trainerCancelBooking(id: string, reason?: string): Promise
     where: { id },
     data: { status: "CANCELLED_BY_TRAINER", cancelReason: reason || null, cancelledAt: new Date() },
   });
+  await dropRoom(id);
   await syncSeriesStatus(b.seriesId);
   revalidate();
   return { ok: true };
@@ -133,6 +139,9 @@ export async function rescheduleBooking(id: string, startTime: string): Promise<
   if (ev.outsideAvailability) return { error: "That's outside your available hours." };
 
   await db.booking.update({ where: { id }, data: { startAt: start, endAt: end } });
+  // The room's join window was bound to the old times, so drop it — the join
+  // route mints a fresh one against the new slot.
+  await dropRoom(id);
   revalidate();
   return {
     ok: true,
