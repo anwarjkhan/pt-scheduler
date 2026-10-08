@@ -13,7 +13,7 @@ export default async function ClientsPage() {
       where: { role: "CLIENT" },
       include: {
         locations: { include: { serviceArea: { select: { id: true, label: true } } } },
-        bookings: { select: { startAt: true, endAt: true, status: true, durationMin: true, location: { select: { label: true, formatted: true } } }, orderBy: { startAt: "asc" } },
+        bookings: { select: { startAt: true, endAt: true, status: true, durationMin: true, noShow: true, location: { select: { label: true, formatted: true } } }, orderBy: { startAt: "asc" } },
       },
       orderBy: { name: "asc" },
     }),
@@ -26,7 +26,12 @@ export default async function ClientsPage() {
 
   const cards: ClientCard[] = clients.map((c) => {
     const live = c.bookings.filter((b) => b.endAt >= now && ["PENDING", "ACCEPTED"].includes(b.status));
-    const past = c.bookings.filter((b) => b.status === "ACCEPTED" && b.endAt < now);
+    // COMPLETED is persisted now, but older rows the sweep has not reached yet
+    // are still ACCEPTED in the past — count both, or a client's history reads
+    // as zero. A no-show occupied the slot but was not delivered.
+    const past = c.bookings.filter(
+      (b) => !b.noShow && (b.status === "COMPLETED" || (b.status === "ACCEPTED" && b.endAt < now)),
+    );
     return {
       id: c.id,
       name: c.name ?? c.email,
