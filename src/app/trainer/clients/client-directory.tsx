@@ -41,11 +41,11 @@ export type ClientCard = {
   balancePence: number;
   billingMode: string;
   /** Trainer-only. Never rendered on a client-facing page. */
-  health: { status: HealthStatus; headline: string } | null;
+  health: { status: HealthStatus; headline: string; score: number | null; confident: boolean } | null;
 };
 
 type Status = "all" | "upcoming" | "pending" | "inactive" | "new" | "credit" | "owing" | "attention" | "star";
-type Sort = "name" | "next" | "last" | "sessions" | "balance";
+type Sort = "name" | "next" | "last" | "sessions" | "balance" | "score";
 
 const STATUS: { value: Status; label: string }[] = [
   { value: "all", label: "All" },
@@ -124,6 +124,15 @@ function AreaFilter({
   );
 }
 
+/**
+ * Sort key for the score column. Provisional scores are pushed below every
+ * settled one so a two-session client cannot top the list on thin evidence.
+ */
+function rankScore(c: ClientCard): number {
+  if (c.health?.score == null) return -1;
+  return c.health.confident ? c.health.score : c.health.score / 1000;
+}
+
 /** Searchable, filterable client list. All filtering is client-side — the list is small. */
 export function ClientDirectory({
   clients,
@@ -181,6 +190,10 @@ export function ClientDirectory({
       sessions: (a, b) => b.completedCount - a.completedCount,
       // Most owed first, then most in credit — the ones needing chasing surface.
       balance: (a, b) => a.balancePence - b.balancePence,
+      // Best first. A provisional score ranks below every settled one, and a
+      // client with no score at all sorts last — neither has earned a place
+      // in the ranking yet.
+      score: (a, b) => rankScore(b) - rankScore(a),
     };
     return [...list].sort(by[sort]);
   }, [clients, q, status, area, sort]);
@@ -248,6 +261,7 @@ export function ClientDirectory({
           <option value="last">Sort: last seen</option>
           <option value="sessions">Sort: most sessions</option>
           <option value="balance">Sort: balance</option>
+          <option value="score">Sort: score</option>
         </select>
         {active && (
           <Button
@@ -320,10 +334,32 @@ export function ClientDirectory({
                   {c.phone ? ` · ${c.phone}` : ""} · {c.completedCount} completed
                   {c.lastSessionAt ? ` · last seen ${formatInTimeZone(c.lastSessionAt, tz, "d MMM")}` : ""}
                 </CardDescription>
-                {c.health && c.health.status !== "STEADY" && c.health.status !== "TOO_EARLY" && (
+                {c.health && (c.health.score != null || c.health.status === "EXEMPT") && (
                   <div className="flex flex-wrap items-center gap-2 pt-1">
-                    <StatusPill status={c.health.status} />
-                    <span className="text-xs text-muted-foreground">{c.health.headline}</span>
+                    {c.health.score != null && (
+                      <span
+                        className={cn(
+                          "rounded-md px-1.5 py-0.5 font-heading text-xs font-bold tabular-nums",
+                          !c.health.confident
+                            ? "bg-muted text-muted-foreground"
+                            : c.health.score >= 85
+                              ? "bg-emerald-600/15 text-emerald-700 dark:text-emerald-400"
+                              : c.health.score >= 50
+                                ? "bg-muted text-foreground"
+                                : "bg-destructive/15 text-destructive",
+                        )}
+                        title={c.health.confident ? "Overall score" : "Provisional — not enough history yet"}
+                      >
+                        {c.health.confident ? "" : "~"}
+                        {c.health.score}
+                      </span>
+                    )}
+                    {c.health.status !== "STEADY" && c.health.status !== "TOO_EARLY" && (
+                      <StatusPill status={c.health.status} />
+                    )}
+                    {c.health.status !== "STEADY" && (
+                      <span className="text-xs text-muted-foreground">{c.health.headline}</span>
+                    )}
                   </div>
                 )}
               </CardHeader>

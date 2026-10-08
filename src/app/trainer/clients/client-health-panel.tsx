@@ -2,7 +2,7 @@
 
 import { useActionState, useState } from "react";
 import { saveHealthExemption, type WalletActionState } from "./wallet-actions";
-import { STATUS_META, type ClientHealth, type HealthStatus } from "@/lib/client-health";
+import { scoreBand, STATUS_META, type ClientHealth, type HealthStatus, type OverallScore } from "@/lib/client-health";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -28,11 +28,12 @@ export function ClientHealthPanel({
   exempt: boolean;
   exemptReason: string | null;
 }) {
+  const partFor = (k: string) => health.overall?.parts.find((p) => p.key === k);
   const dims = [
-    { key: "Reliability", d: health.reliability },
-    { key: "Value", d: health.value },
-    { key: "Effort", d: health.effort },
-    { key: "Payment", d: health.payment },
+    { key: "Reliability", d: health.reliability, part: partFor("reliability") },
+    { key: "Value", d: health.value, part: partFor("value") },
+    { key: "Effort", d: health.effort, part: partFor("effort") },
+    { key: "Payment", d: health.payment, part: partFor("payment") },
   ];
 
   return (
@@ -49,17 +50,69 @@ export function ClientHealthPanel({
       </CardHeader>
       <CardContent>
         <p className="mb-3 text-xs text-muted-foreground">Only you see this — it never appears on the client&apos;s side.</p>
+        {health.overall && (
+          <div className="mb-4 flex items-baseline gap-3 border-b pb-4">
+            <ScoreNumber overall={health.overall} />
+            <div className="text-xs text-muted-foreground">
+              <div className="font-medium capitalize text-foreground">{scoreBand(health.overall.score)}</div>
+              <div>
+                {health.overall.confident
+                  ? "Weighted across the four below."
+                  : "Provisional — not enough history yet to be sure."}
+              </div>
+            </div>
+          </div>
+        )}
         <ul className="space-y-2.5">
-          {dims.map(({ key, d }) => (
+          {dims.map(({ key, d, part }) => {
+            const weight = part?.weight ?? null;
+            const counted = part?.counted ?? true;
+            return (
             <li key={key} className="flex flex-wrap items-baseline gap-x-3 gap-y-1 text-sm">
               <span className="w-24 shrink-0 font-medium">{key}</span>
               <Dots score={d.score} confident={d.confident} />
               <span className={cn("min-w-0 flex-1 text-muted-foreground", !d.confident && "italic")}>{d.reason}</span>
+              {weight != null && (
+                <span className="shrink-0 text-xs tabular-nums text-muted-foreground/70">
+                  {weight}%{counted ? "" : " · not counted"}
+                </span>
+              )}
             </li>
-          ))}
+            );
+          })}
         </ul>
+        <p className="mt-3 text-xs text-muted-foreground">
+          Weights are yours to set in Settings → Billing. A dimension that can&apos;t be measured is left out rather
+          than counted as zero.
+        </p>
       </CardContent>
     </Card>
+  );
+}
+
+/**
+ * The headline number.
+ *
+ * Shown greyed and with a tilde when it rests on thin history: a trainer asking
+ * "how is this client doing?" deserves an answer on day one, but it should not
+ * look like a verdict.
+ */
+function ScoreNumber({ overall }: { overall: OverallScore }) {
+  const tone = !overall.confident
+    ? "text-muted-foreground"
+    : overall.score >= 85
+      ? "text-emerald-600 dark:text-emerald-400"
+      : overall.score >= 50
+        ? "text-foreground"
+        : "text-destructive";
+  return (
+    <div className="flex items-baseline gap-1">
+      <span className={cn("font-heading text-4xl font-semibold tabular-nums", tone)}>
+        {overall.confident ? "" : "~"}
+        {overall.score}
+      </span>
+      <span className="text-sm text-muted-foreground">/ 100</span>
+    </div>
   );
 }
 

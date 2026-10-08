@@ -53,7 +53,14 @@ export default async function ClientsPage() {
       billingMode: c.billingMode,
       health: (() => {
         const h = health.get(c.id);
-        return h ? { status: h.status, headline: h.headline } : null;
+        return h
+          ? {
+              status: h.status,
+              headline: h.headline,
+              score: h.overall?.score ?? null,
+              confident: h.overall?.confident ?? false,
+            }
+          : null;
       })(),
     };
   });

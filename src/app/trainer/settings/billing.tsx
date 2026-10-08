@@ -33,6 +33,10 @@ export function Billing({
     cancellationNoticeHours: number;
     cancellationDepositPct: number;
     autoCompleteAfterHours: number;
+    weightReliability: number;
+    weightValue: number;
+    weightPayment: number;
+    weightEffort: number;
   };
 }) {
   const [state, action, pending] = useActionState<SettingsState, FormData>(saveBillingSettings, {});
@@ -168,6 +172,23 @@ export function Billing({
         </Card>
       </div>
 
+      <Card>
+        <CardHeader>
+          <CardTitle>Client scoring</CardTitle>
+          <CardDescription>
+            How much each part counts toward a client&apos;s overall score, shown on their page and in your client
+            list. They don&apos;t need to add up to 100 — the balance between them is what matters. Only you ever see
+            these scores.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+          <Weight name="weightReliability" label="Reliability" hint="Turning up" value={initial.weightReliability} />
+          <Weight name="weightValue" label="Value" hint="Earned per hour" value={initial.weightValue} />
+          <Weight name="weightPayment" label="Payment" hint="Pays without chasing" value={initial.weightPayment} />
+          <Weight name="weightEffort" label="Effort" hint="Travel and moves" value={initial.weightEffort} />
+        </CardContent>
+      </Card>
+
       <div className="flex items-center gap-3">
         <Button type="submit" disabled={pending}>
           {pending ? "Saving…" : "Save billing settings"}
@@ -176,5 +197,19 @@ export function Billing({
         {state.error && <span className="text-sm text-destructive">{state.error}</span>}
       </div>
     </form>
+  );
+}
+
+/** One scoring weight. */
+function Weight({ name, label, hint, value }: { name: string; label: string; hint: string; value: number }) {
+  return (
+    <div className="space-y-1">
+      <Label htmlFor={name}>{label}</Label>
+      <div className="flex items-center gap-2">
+        <Input id={name} name={name} type="number" min={0} max={100} defaultValue={value} />
+        <span className="text-sm text-muted-foreground">%</span>
+      </div>
+      <p className="text-xs text-muted-foreground">{hint}</p>
+    </div>
   );
 }

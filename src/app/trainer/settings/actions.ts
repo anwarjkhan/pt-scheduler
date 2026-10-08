@@ -253,6 +253,12 @@ const billingSchema = z.object({
   cancellationNoticeHours: z.coerce.number().int().min(0).max(168),
   cancellationDepositPct: z.coerce.number().int().min(0).max(100),
   autoCompleteAfterHours: z.coerce.number().int().min(1).max(720),
+  // Client scoring weights. Any non-negative numbers: they are normalised on
+  // read, so these need not sum to 100 and one can be nudged on its own.
+  weightReliability: z.coerce.number().int().min(0).max(100),
+  weightValue: z.coerce.number().int().min(0).max(100),
+  weightPayment: z.coerce.number().int().min(0).max(100),
+  weightEffort: z.coerce.number().int().min(0).max(100),
 });
 
 /** "60" / "60.50" / "" → pence, or null for a blank cell. */
@@ -269,6 +275,9 @@ export async function saveBillingSettings(_prev: SettingsState, fd: FormData): P
   const parsed = billingSchema.safeParse(raw);
   if (!parsed.success) return { error: parsed.error.issues.map((i) => i.message).join("; ") };
   const d = parsed.data;
+  if (d.weightReliability + d.weightValue + d.weightPayment + d.weightEffort === 0) {
+    return { error: "At least one scoring weight has to be above zero." };
+  }
 
   // Rate cells arrive as "rate:IN_PERSON:60".
   const writes: { sessionType: string; durationMin: number; amountPence: number }[] = [];

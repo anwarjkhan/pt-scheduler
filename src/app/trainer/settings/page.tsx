@@ -49,6 +49,10 @@ export default async function SettingsPage() {
               cancellationNoticeHours: s.cancellationNoticeHours,
               cancellationDepositPct: s.cancellationDepositPct,
               autoCompleteAfterHours: s.autoCompleteAfterHours,
+              weightReliability: s.weightReliability,
+              weightValue: s.weightValue,
+              weightPayment: s.weightPayment,
+              weightEffort: s.weightEffort,
             }}
           />
         }
