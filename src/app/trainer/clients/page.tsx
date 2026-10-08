@@ -1,9 +1,11 @@
 import { db } from "@/lib/db";
-import { getSchedulingSettings } from "@/lib/settings";
+import { getTrainerSettings } from "@/lib/settings";
+import { getBalances } from "@/lib/wallet";
 import { ClientDirectory, type ClientCard } from "./client-directory";
 
 export default async function ClientsPage() {
-  const { timezone: tz } = await getSchedulingSettings();
+  const settings = await getTrainerSettings();
+  const tz = settings.timezone;
   const now = new Date();
   const [clients, areas] = await Promise.all([
     db.user.findMany({
@@ -16,6 +18,9 @@ export default async function ClientsPage() {
     }),
     db.serviceArea.findMany({ select: { id: true, label: true }, orderBy: { label: "asc" } }),
   ]);
+
+  // One grouped query for every balance, rather than one per client.
+  const balances = await getBalances(clients.map((c) => c.id));
 
   const cards: ClientCard[] = clients.map((c) => {
     const live = c.bookings.filter((b) => b.endAt >= now && ["PENDING", "ACCEPTED"].includes(b.status));
@@ -42,13 +47,15 @@ export default async function ClientsPage() {
       lastSessionAt: past.at(-1)?.startAt.toISOString() ?? null,
       nextSessionAt: live[0]?.startAt.toISOString() ?? null,
       joinedAt: c.createdAt.toISOString(),
+      balancePence: balances.get(c.id) ?? 0,
+      billingMode: c.billingMode,
     };
   });
 
   return (
     <div className="space-y-6">
       <h1 className="font-heading text-2xl font-semibold">Clients</h1>
-      <ClientDirectory clients={cards} areas={areas} tz={tz} />
+      <ClientDirectory clients={cards} areas={areas} tz={tz} currency={settings.currency} />
     </div>
   );
 }

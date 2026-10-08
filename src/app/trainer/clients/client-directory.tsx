@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { ChevronDown, Search, X } from "lucide-react";
 import { MapLink } from "@/components/map-link";
+import { formatMoney } from "@/lib/pricing";
 import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
@@ -34,10 +35,13 @@ export type ClientCard = {
   lastSessionAt: string | null;
   nextSessionAt: string | null;
   joinedAt: string;
+  /** Positive = pre-paid credit held, negative = owed. */
+  balancePence: number;
+  billingMode: string;
 };
 
-type Status = "all" | "upcoming" | "pending" | "inactive" | "new";
-type Sort = "name" | "next" | "last" | "sessions";
+type Status = "all" | "upcoming" | "pending" | "inactive" | "new" | "credit" | "owing";
+type Sort = "name" | "next" | "last" | "sessions" | "balance";
 
 const STATUS: { value: Status; label: string }[] = [
   { value: "all", label: "All" },
@@ -45,6 +49,8 @@ const STATUS: { value: Status; label: string }[] = [
   { value: "pending", label: "Awaiting approval" },
   { value: "inactive", label: "Nothing booked" },
   { value: "new", label: "No sessions yet" },
+  { value: "credit", label: "In credit" },
+  { value: "owing", label: "Owes money" },
 ];
 
 /**
@@ -113,7 +119,17 @@ function AreaFilter({
 }
 
 /** Searchable, filterable client list. All filtering is client-side — the list is small. */
-export function ClientDirectory({ clients, areas, tz }: { clients: ClientCard[]; areas: { id: string; label: string }[]; tz: string }) {
+export function ClientDirectory({
+  clients,
+  areas,
+  tz,
+  currency,
+}: {
+  clients: ClientCard[];
+  areas: { id: string; label: string }[];
+  tz: string;
+  currency: string;
+}) {
   const [q, setQ] = useState("");
   const [status, setStatus] = useState<Status>("all");
   // Empty = no area filter. Otherwise a client matches if any of their
@@ -138,6 +154,10 @@ export function ClientDirectory({ clients, areas, tz }: { clients: ClientCard[];
           return c.upcoming.length === 0;
         case "new":
           return c.completedCount === 0;
+        case "credit":
+          return c.balancePence > 0;
+        case "owing":
+          return c.balancePence < 0;
         default:
           return true;
       }
@@ -147,14 +167,63 @@ export function ClientDirectory({ clients, areas, tz }: { clients: ClientCard[];
       next: (a, b) => (a.nextSessionAt ?? "9").localeCompare(b.nextSessionAt ?? "9"),
       last: (a, b) => (b.lastSessionAt ?? "").localeCompare(a.lastSessionAt ?? ""),
       sessions: (a, b) => b.completedCount - a.completedCount,
+      // Most owed first, then most in credit — the ones needing chasing surface.
+      balance: (a, b) => a.balancePence - b.balancePence,
     };
     return [...list].sort(by[sort]);
   }, [clients, q, status, area, sort]);
 
   const active = q || status !== "all" || area.length > 0;
 
+  // Across every client, not just the filtered view — this is the "where do I
+  // stand overall" number, and it should not move when a filter is applied.
+  const totals = useMemo(() => {
+    const credit = clients.filter((c) => c.balancePence > 0);
+    const owing = clients.filter((c) => c.balancePence < 0);
+    return {
+      prepaidPence: credit.reduce((n, c) => n + c.balancePence, 0),
+      prepaidCount: credit.length,
+      owedPence: owing.reduce((n, c) => n + Math.abs(c.balancePence), 0),
+      owedCount: owing.length,
+    };
+  }, [clients]);
+
   return (
     <div className="space-y-4">
+      {(totals.prepaidCount > 0 || totals.owedCount > 0) && (
+        <div className="grid gap-3 sm:grid-cols-2">
+          <button
+            type="button"
+            onClick={() => setStatus(status === "credit" ? "all" : "credit")}
+            className={cn(
+              "rounded-md border bg-card p-3 text-left transition-colors hover:bg-accent",
+              status === "credit" && "border-tjm-charcoal ring-1 ring-tjm-charcoal",
+            )}
+          >
+            <div className="font-heading text-2xl font-semibold tabular-nums text-emerald-600 dark:text-emerald-400">
+              {formatMoney(totals.prepaidPence, currency)}
+            </div>
+            <div className="text-xs uppercase tracking-wide text-muted-foreground">
+              Prepaid credit held · {totals.prepaidCount} client{totals.prepaidCount === 1 ? "" : "s"}
+            </div>
+          </button>
+          <button
+            type="button"
+            onClick={() => setStatus(status === "owing" ? "all" : "owing")}
+            className={cn(
+              "rounded-md border bg-card p-3 text-left transition-colors hover:bg-accent",
+              status === "owing" && "border-tjm-charcoal ring-1 ring-tjm-charcoal",
+            )}
+          >
+            <div className={cn("font-heading text-2xl font-semibold tabular-nums", totals.owedPence > 0 && "text-destructive")}>
+              {formatMoney(totals.owedPence, currency)}
+            </div>
+            <div className="text-xs uppercase tracking-wide text-muted-foreground">
+              Owed to you · {totals.owedCount} client{totals.owedCount === 1 ? "" : "s"}
+            </div>
+          </button>
+        </div>
+      )}
       <div className="flex flex-wrap items-center gap-2">
         <div className="relative min-w-64 flex-1">
           <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -166,6 +235,7 @@ export function ClientDirectory({ clients, areas, tz }: { clients: ClientCard[];
           <option value="next">Sort: next session</option>
           <option value="last">Sort: last seen</option>
           <option value="sessions">Sort: most sessions</option>
+          <option value="balance">Sort: balance</option>
         </select>
         {active && (
           <Button
@@ -212,6 +282,19 @@ export function ClientDirectory({ clients, areas, tz }: { clients: ClientCard[];
                 <CardTitle className="flex items-center justify-between gap-2">
                   <span>{c.name}</span>
                   <span className="flex items-center gap-2">
+                    {c.balancePence !== 0 && (
+                      <span
+                        className={cn(
+                          "rounded-full px-2 py-0.5 font-heading text-[11px] font-bold tabular-nums",
+                          c.balancePence > 0
+                            ? "bg-emerald-600/15 text-emerald-700 dark:text-emerald-400"
+                            : "bg-destructive/15 text-destructive",
+                        )}
+                        title={c.balancePence > 0 ? "Prepaid credit remaining" : "Owed to you"}
+                      >
+                        {formatMoney(Math.abs(c.balancePence), currency)} {c.balancePence > 0 ? "credit" : "owed"}
+                      </span>
+                    )}
                     {c.pendingCount > 0 && (
                       <span className="rounded-full bg-tjm-orange px-2 py-0.5 font-heading text-[11px] font-bold text-white">{c.pendingCount} pending</span>
                     )}
