@@ -1,6 +1,7 @@
 import { db } from "@/lib/db";
 import { getTrainerSettings } from "@/lib/settings";
 import { getBalances } from "@/lib/wallet";
+import { getAllClientHealth } from "@/lib/client-health-data";
 import { ClientDirectory, type ClientCard } from "./client-directory";
 
 export default async function ClientsPage() {
@@ -19,8 +20,9 @@ export default async function ClientsPage() {
     db.serviceArea.findMany({ select: { id: true, label: true }, orderBy: { label: "asc" } }),
   ]);
 
-  // One grouped query for every balance, rather than one per client.
-  const balances = await getBalances(clients.map((c) => c.id));
+  // One grouped query for every balance, and one pass for every health score,
+  // rather than a pair of queries per client.
+  const [balances, health] = await Promise.all([getBalances(clients.map((c) => c.id)), getAllClientHealth()]);
 
   const cards: ClientCard[] = clients.map((c) => {
     const live = c.bookings.filter((b) => b.endAt >= now && ["PENDING", "ACCEPTED"].includes(b.status));
@@ -49,6 +51,10 @@ export default async function ClientsPage() {
       joinedAt: c.createdAt.toISOString(),
       balancePence: balances.get(c.id) ?? 0,
       billingMode: c.billingMode,
+      health: (() => {
+        const h = health.get(c.id);
+        return h ? { status: h.status, headline: h.headline } : null;
+      })(),
     };
   });
 

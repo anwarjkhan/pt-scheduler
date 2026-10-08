@@ -11,6 +11,8 @@ import { cn } from "@/lib/utils";
 import { ChevronDown, Search, X } from "lucide-react";
 import { MapLink } from "@/components/map-link";
 import { formatMoney } from "@/lib/pricing";
+import type { HealthStatus } from "@/lib/client-health";
+import { StatusPill } from "./client-health-panel";
 import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
@@ -38,9 +40,11 @@ export type ClientCard = {
   /** Positive = pre-paid credit held, negative = owed. */
   balancePence: number;
   billingMode: string;
+  /** Trainer-only. Never rendered on a client-facing page. */
+  health: { status: HealthStatus; headline: string } | null;
 };
 
-type Status = "all" | "upcoming" | "pending" | "inactive" | "new" | "credit" | "owing";
+type Status = "all" | "upcoming" | "pending" | "inactive" | "new" | "credit" | "owing" | "attention" | "star";
 type Sort = "name" | "next" | "last" | "sessions" | "balance";
 
 const STATUS: { value: Status; label: string }[] = [
@@ -51,6 +55,8 @@ const STATUS: { value: Status; label: string }[] = [
   { value: "new", label: "No sessions yet" },
   { value: "credit", label: "In credit" },
   { value: "owing", label: "Owes money" },
+  { value: "attention", label: "Needs attention" },
+  { value: "star", label: "Star clients" },
 ];
 
 /**
@@ -158,6 +164,12 @@ export function ClientDirectory({
           return c.balancePence > 0;
         case "owing":
           return c.balancePence < 0;
+        case "attention":
+          // Drifting belongs here too: both are clients to contact, even
+          // though one is a money problem and the other a retention one.
+          return c.health?.status === "ATTENTION" || c.health?.status === "DRIFTING";
+        case "star":
+          return c.health?.status === "STAR";
         default:
           return true;
       }
@@ -308,6 +320,12 @@ export function ClientDirectory({
                   {c.phone ? ` · ${c.phone}` : ""} · {c.completedCount} completed
                   {c.lastSessionAt ? ` · last seen ${formatInTimeZone(c.lastSessionAt, tz, "d MMM")}` : ""}
                 </CardDescription>
+                {c.health && c.health.status !== "STEADY" && c.health.status !== "TOO_EARLY" && (
+                  <div className="flex flex-wrap items-center gap-2 pt-1">
+                    <StatusPill status={c.health.status} />
+                    <span className="text-xs text-muted-foreground">{c.health.headline}</span>
+                  </div>
+                )}
               </CardHeader>
               <CardContent className="space-y-3 text-sm">
                 {(c.emergencyContact || c.notes) && (

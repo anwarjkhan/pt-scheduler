@@ -5,6 +5,8 @@ import { db } from "@/lib/db";
 import { getTrainerSettings } from "@/lib/settings";
 import { getBalance, getLedger, getStatement } from "@/lib/wallet";
 import { ClientWallet } from "../client-wallet";
+import { ClientHealthPanel } from "../client-health-panel";
+import { getClientHealth } from "@/lib/client-health-data";
 import { monthRange } from "@/lib/month";
 import { StatusBadge } from "@/components/status-badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -39,10 +41,11 @@ export default async function ClientHistoryPage({ params }: PageProps<"/trainer/
   // The statement month is a calendar month in the trainer's timezone, so it
   // does not drift across a DST boundary.
   const { from, to, label } = monthRange(new Date(), tz);
-  const [balance, ledger, statement] = await Promise.all([
+  const [balance, ledger, statement, health] = await Promise.all([
     getBalance(client.id),
     getLedger(client.id, 50),
     getStatement(client.id, from, to),
+    getClientHealth(client.id),
   ]);
 
   const now = new Date();
@@ -92,6 +95,15 @@ export default async function ClientHistoryPage({ params }: PageProps<"/trainer/
           </div>
         ))}
       </div>
+
+      {health && (
+        <ClientHealthPanel
+          clientId={client.id}
+          health={health}
+          exempt={client.healthExempt}
+          exemptReason={client.healthExemptReason}
+        />
+      )}
 
       <ClientWallet
         clientId={client.id}

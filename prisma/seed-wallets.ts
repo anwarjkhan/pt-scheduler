@@ -204,6 +204,60 @@ async function main() {
     written++;
   }
 
+  // ---------- 4. Behaviour signals ----------
+  // Health scoring needs something to score. Without these every client looks
+  // identical and the no-show path would ship unexercised.
+  const signal = async (email: string, fn: (clientId: string) => Promise<void>) => {
+    const id = byEmail.get(email);
+    if (id) await fn(id);
+  };
+
+  // Grace — a no-show, which is the worst outcome and had no example.
+  await signal("grace@example.com", async (clientId) => {
+    const b = await db.booking.findFirst({
+      where: { clientId, status: "COMPLETED", noShow: false },
+      orderBy: { startAt: "desc" },
+    });
+    if (b) await db.booking.update({ where: { id: b.id }, data: { noShow: true } });
+  });
+
+  // Bob — cancelled with almost no warning, which should sting far more than
+  // the polite 36-hour cancellations already in the data.
+  await signal("bob@example.com", async (clientId) => {
+    const b = await db.booking.findFirst({
+      where: { clientId, status: "CANCELLED_BY_CLIENT" },
+      orderBy: { startAt: "desc" },
+    });
+    if (b) {
+      await db.booking.update({
+        where: { id: b.id },
+        data: { cancelledAt: new Date(b.startAt.getTime() - 45 * 60 * 1000) },
+      });
+    }
+  });
+
+  // Frank — moves his sessions constantly. Attributed to the CLIENT, unlike a
+  // drag on the trainer's own calendar.
+  await signal("frank@example.com", async (clientId) => {
+    const bs = await db.booking.findMany({ where: { clientId }, orderBy: { startAt: "desc" }, take: 3 });
+    for (const b of bs) {
+      await db.booking.update({
+        where: { id: b.id },
+        data: { rescheduleCount: 2, rescheduledBy: "CLIENT", lastRescheduledAt: daysAgo(5) },
+      });
+    }
+  });
+
+  // Eve — exempt, so the override is visible on screen.
+  await signal("eve@example.com", (clientId) =>
+    db.user
+      .update({
+        where: { id: clientId },
+        data: { healthExempt: true, healthExemptReason: "Recovering from an injury — revisit in the new year" },
+      })
+      .then(() => undefined),
+  );
+
   // ---------- Report ----------
   console.log(`Priced ${pricedCount} historical bookings.`);
   console.log(`Wrote ${written} wallet entries${skipped ? ` (${skipped} skipped — client not found)` : ""}.\n`);

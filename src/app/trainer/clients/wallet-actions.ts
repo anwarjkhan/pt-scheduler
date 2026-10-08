@@ -262,3 +262,37 @@ export async function clearDownWallet(_prev: WalletActionState, fd: FormData): P
         : `Wrote off ${formatMoney(Math.abs(balance))}. Balance is now zero.`,
   };
 }
+
+/**
+ * Leave a client out of health scoring, or put them back in.
+ *
+ * The numbers are sometimes wrong about a person — illness, bereavement, a
+ * long planned break — and repeated cancellations then say nothing about
+ * whether they are a good client. The reason is private to the trainer and is
+ * never rendered on a client-facing page.
+ */
+const exemptionSchema = z.object({
+  clientId: z.string().min(1),
+  exempt: z.enum(["true", "false"]).transform((v) => v === "true"),
+  reason: z.string().trim().max(200).optional(),
+});
+
+export async function saveHealthExemption(_prev: WalletActionState, fd: FormData): Promise<WalletActionState> {
+  await requireTrainer();
+  const parsed = exemptionSchema.safeParse(Object.fromEntries(fd));
+  if (!parsed.success) return { error: parsed.error.issues.map((i) => i.message).join("; ") };
+  const d = parsed.data;
+
+  await db.user.update({
+    where: { id: d.clientId },
+    data: {
+      healthExempt: d.exempt,
+      // Clear the note when scoring resumes, so a stale reason cannot reappear
+      // the next time someone is exempted.
+      healthExemptReason: d.exempt ? d.reason || null : null,
+    },
+  });
+
+  revalidatePath("/trainer", "layout");
+  return { ok: true, message: d.exempt ? "Left out of scoring." : "Scoring resumed." };
+}
