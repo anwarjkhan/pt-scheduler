@@ -27,8 +27,10 @@ jobs:
       # `npm ci` runs postinstall → prisma generate.
       - run: npm ci
 
+      # `PageProps`/`LayoutProps` are generated into .next/types, which
+      # tsconfig includes. Generate them first so `tsc` can run without a build.
       - name: Typecheck
-        run: npx tsc --noEmit
+        run: npx next typegen && npx tsc --noEmit
 
       - name: Lint
         run: npm run lint
