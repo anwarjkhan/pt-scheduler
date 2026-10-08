@@ -8,6 +8,7 @@ import { requireTrainer } from "@/lib/session";
 import { loadDayContext, sessionCoords } from "@/lib/bookings";
 import { getCommute } from "@/lib/maps";
 import { getSchedulingSettings } from "@/lib/settings";
+import { resolvePrice } from "@/lib/pricing";
 import { addMinutes, DURATIONS, evaluateSlot, zoned } from "@/lib/scheduling";
 import { issueGuestToken, provisionRoomSafely, revokeGuestToken, videoConfigured } from "@/lib/video";
 import type { TrainerActionResult } from "./actions";
@@ -92,6 +93,9 @@ export async function createAdhocOnlineSession(input: z.infer<typeof adhoc>): Pr
   const evaluation = await evaluateSlot({ start, end, loc: at }, ctx.existing, ctx.windows, ctx.settings, getCommute);
   if (evaluation.overlaps) return { error: "That clashes with a confirmed session." };
 
+  const price = await resolvePrice({ sessionType: "ONLINE", durationMin: d.duration }, d.clientId);
+  if (!price.ok) return { error: price.error };
+
   const booking = await db.booking.create({
     data: {
       clientId: d.clientId,
@@ -103,6 +107,8 @@ export async function createAdhocOnlineSession(input: z.infer<typeof adhoc>): Pr
       // The trainer booked it, so there is nothing to accept.
       status: "ACCEPTED",
       trainerNote: d.note || null,
+      priceAmountPence: price.amountPence,
+      priceCurrency: price.currency,
     },
   });
 

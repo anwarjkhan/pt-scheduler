@@ -5,7 +5,16 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { format, parseISO } from "date-fns";
 import type { CalendarBooking } from "@/lib/calendar-data";
-import { acceptBooking, acceptSeries, declineBooking, declineSeries, trainerCancelBooking } from "./actions";
+import {
+  acceptBooking,
+  acceptSeries,
+  completeBooking,
+  declineBooking,
+  declineSeries,
+  markNoShow,
+  trainerCancelBooking,
+} from "./actions";
+import { formatMoney } from "@/lib/pricing";
 import { CommuteSummary } from "@/components/commute-summary";
 import { StatusBadge } from "@/components/status-badge";
 import { Button } from "@/components/ui/button";
@@ -39,6 +48,9 @@ export function BookingDialog({ booking: b, onClose }: { booking: CalendarBookin
     new Date(),
   );
   const active = ["PENDING", "ACCEPTED"].includes(b.status);
+  // Only a finished, confirmed session can be settled.
+  const finished = new Date(b.endAt) <= new Date();
+  const settleable = b.status === "ACCEPTED" && finished;
   // Date shown from the trainer-tz startTime rather than the browser's local time.
   const dayLabel = format(parseISO(b.startAt.slice(0, 10)), "EEEE d MMMM");
 
@@ -50,7 +62,11 @@ export function BookingDialog({ booking: b, onClose }: { booking: CalendarBookin
             {dayLabel}, {b.startTime}–{b.endTime}
             <StatusBadge status={b.status} />
           </DialogTitle>
-          <DialogDescription>{b.durationMin}-minute session</DialogDescription>
+          <DialogDescription>
+            {b.durationMin}-minute session
+            {b.priceAmountPence != null && ` · ${formatMoney(b.priceAmountPence, b.priceCurrency ?? undefined)}`}
+            {b.noShow && " · recorded as a no-show"}
+          </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-2 text-sm">
@@ -119,6 +135,16 @@ export function BookingDialog({ booking: b, onClose }: { booking: CalendarBookin
             <Button nativeButton={false} render={<Link href={`/app/session/${b.id}`} />}>
               <Video className="h-4 w-4" /> Join session
             </Button>
+          )}
+          {settleable && (
+            <>
+              <Button onClick={() => run(() => completeBooking(b.id))} disabled={pending}>
+                Mark complete
+              </Button>
+              <Button variant="outline" onClick={() => run(() => markNoShow(b.id))} disabled={pending}>
+                No-show
+              </Button>
+            </>
           )}
           {b.status === "ACCEPTED" && (
             <Button variant="destructive" onClick={() => run(() => trainerCancelBooking(b.id, reason))} disabled={pending}>

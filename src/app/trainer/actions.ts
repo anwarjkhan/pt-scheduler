@@ -5,8 +5,11 @@ import { db } from "@/lib/db";
 import { requireTrainer } from "@/lib/session";
 import { bookingInclude, evaluateExistingBooking, loadDayContext } from "@/lib/bookings";
 import { dateKey, zoned } from "@/lib/scheduling";
-import { getSchedulingSettings } from "@/lib/settings";
+import { getSchedulingSettings, getTrainerSettings } from "@/lib/settings";
 import { dropRoom, provisionRoomSafely } from "@/lib/video";
+import { formatMoney } from "@/lib/pricing";
+import { noShowFeePence, resolvePolicy } from "@/lib/cancellation";
+import { addEntry, hasEntry } from "@/lib/wallet";
 
 export type TrainerActionResult = { ok?: boolean; error?: string; warnings?: string[] };
 
@@ -48,19 +51,171 @@ export async function declineBooking(id: string, reason?: string): Promise<Train
   return { ok: true };
 }
 
-/** Trainer can cancel any upcoming booking at any time. */
+/**
+ * Trainer can cancel any upcoming booking at any time.
+ *
+ * The client is never charged for the trainer's own cancellation — and if a
+ * fee had already been taken for this session, it is refunded here. The refund
+ * is a compensating entry rather than a deletion, so the history still shows
+ * what happened.
+ */
 export async function trainerCancelBooking(id: string, reason?: string): Promise<TrainerActionResult> {
-  await requireTrainer();
+  const trainer = await requireTrainer();
   const b = await db.booking.findUnique({ where: { id } });
   if (!b || !["PENDING", "ACCEPTED"].includes(b.status)) return { error: "Booking can't be cancelled." };
   await db.booking.update({
     where: { id },
     data: { status: "CANCELLED_BY_TRAINER", cancelReason: reason || null, cancelledAt: new Date() },
   });
+
+  const warnings = await refundBookingCharges(b.id, b.clientId, trainer.id, "Refunded — session cancelled by your trainer");
+
   await dropRoom(id);
   await syncSeriesStatus(b.seriesId);
   revalidate();
-  return { ok: true };
+  return { ok: true, warnings };
+}
+
+/**
+ * Reverse every debit this booking produced. Returns a note for the trainer
+ * when something was actually given back, so a refund is never silent.
+ */
+async function refundBookingCharges(bookingId: string, clientId: string, byId: string, note: string): Promise<string[]> {
+  const debits = await db.walletEntry.findMany({ where: { bookingId, amountPence: { lt: 0 } } });
+  const already = await db.walletEntry.aggregate({
+    where: { bookingId, reason: "REFUND" },
+    _sum: { amountPence: true },
+  });
+  const owed = Math.abs(debits.reduce((n, d) => n + d.amountPence, 0)) - (already._sum.amountPence ?? 0);
+  if (owed <= 0) return [];
+
+  // One REFUND row per booking, so the (bookingId, reason) guard applies.
+  const { created } = await addEntry({
+    clientId,
+    amountPence: owed,
+    reason: "REFUND",
+    bookingId,
+    createdById: byId,
+    note,
+    currency: debits[0]?.currency,
+  });
+  return created ? [`Refunded ${formatMoney(owed, debits[0]?.currency ?? "GBP")} to the client's wallet.`] : [];
+}
+
+/**
+ * Mark a session as done. This is the moment it becomes chargeable, so it is a
+ * persisted event rather than something derived from the clock: a derived
+ * status would re-debit on every page render and leave no audit trail.
+ *
+ * Idempotent — the unique (bookingId, reason) index means a double-click or a
+ * later sweep cannot charge twice.
+ */
+export async function completeBooking(id: string): Promise<TrainerActionResult> {
+  const trainer = await requireTrainer();
+  const b = await db.booking.findUnique({ where: { id } });
+  if (!b) return { error: "Session not found." };
+  if (!["ACCEPTED", "COMPLETED"].includes(b.status)) return { error: "Only confirmed sessions can be completed." };
+  if (b.endAt > new Date()) return { error: "That session hasn't finished yet." };
+
+  await db.booking.update({ where: { id }, data: { status: "COMPLETED", completedAt: b.completedAt ?? new Date() } });
+  const warnings = await chargeForSession(b, trainer.id);
+  revalidate();
+  return { ok: true, warnings };
+}
+
+/**
+ * Mark a session as a no-show.
+ *
+ * Charged as a late cancellation — the deposit percentage, not the full price.
+ * The session is still COMPLETED (the slot was used up), with `noShow` set so
+ * history can tell the two apart.
+ */
+export async function markNoShow(id: string): Promise<TrainerActionResult> {
+  const trainer = await requireTrainer();
+  const b = await db.booking.findUnique({ where: { id } });
+  if (!b) return { error: "Session not found." };
+  if (!["ACCEPTED", "COMPLETED"].includes(b.status)) return { error: "Only confirmed sessions can be marked as a no-show." };
+  if (b.endAt > new Date()) return { error: "That session hasn't finished yet." };
+  if (await hasEntry(id, "SESSION_CHARGE")) {
+    return { error: "This session was already charged in full. Add an adjustment on the client's wallet instead." };
+  }
+
+  await db.booking.update({
+    where: { id },
+    data: { status: "COMPLETED", noShow: true, completedAt: b.completedAt ?? new Date() },
+  });
+
+  const [settings, client] = await Promise.all([
+    getTrainerSettings(),
+    db.user.findUnique({ where: { id: b.clientId }, select: { cancellationNoticeHours: true, cancellationDepositPct: true } }),
+  ]);
+  const policy = resolvePolicy(client, settings);
+  const fee = noShowFeePence(b.priceAmountPence, policy);
+  const warnings: string[] = [];
+
+  if (fee > 0) {
+    const { created } = await addEntry({
+      clientId: b.clientId,
+      amountPence: -fee,
+      reason: "CANCELLATION_FEE",
+      bookingId: b.id,
+      createdById: trainer.id,
+      note: `No-show (${policy.depositPct}% of ${formatMoney(b.priceAmountPence ?? 0, settings.currency)})`,
+      currency: b.priceCurrency ?? settings.currency,
+    });
+    if (created) warnings.push(`Charged ${formatMoney(fee, b.priceCurrency ?? settings.currency)} as a no-show fee.`);
+  } else if (b.priceAmountPence == null) {
+    warnings.push("This session predates pricing, so nothing was charged.");
+  }
+
+  revalidate();
+  return { ok: true, warnings };
+}
+
+/**
+ * Debit the client for a completed session. Shared by the trainer action and
+ * the sweep, so both charge identically.
+ */
+async function chargeForSession(
+  b: { id: string; clientId: string; priceAmountPence: number | null; priceCurrency: string | null; noShow: boolean },
+  byId: string,
+): Promise<string[]> {
+  // A no-show is charged by markNoShow at the deposit rate; never also charge
+  // it in full here.
+  if (b.noShow) return [];
+  if (b.priceAmountPence == null) return ["This session predates pricing, so nothing was charged."];
+  if (b.priceAmountPence <= 0) return [];
+
+  const { created } = await addEntry({
+    clientId: b.clientId,
+    amountPence: -b.priceAmountPence,
+    reason: "SESSION_CHARGE",
+    bookingId: b.id,
+    createdById: byId,
+    currency: b.priceCurrency ?? undefined,
+  });
+  return created ? [`Charged ${formatMoney(b.priceAmountPence, b.priceCurrency ?? "GBP")} to the client's wallet.`] : [];
+}
+
+/**
+ * Complete sessions the trainer never ticked off.
+ *
+ * Trainers will not mark every box, and an uncharged session is a silently
+ * lost fee. This runs lazily from the pages that load anyway — the codebase
+ * has no cron — and is safe to call repeatedly: the status filter stops it
+ * re-processing, and the ledger's unique index stops any double charge.
+ */
+export async function sweepCompletedSessions(): Promise<number> {
+  const settings = await getTrainerSettings();
+  const cutoff = new Date(Date.now() - settings.autoCompleteAfterHours * 60 * 60 * 1000);
+  const due = await db.booking.findMany({ where: { status: "ACCEPTED", endAt: { lt: cutoff } }, take: 200 });
+  if (due.length === 0) return 0;
+
+  for (const b of due) {
+    await db.booking.update({ where: { id: b.id }, data: { status: "COMPLETED", completedAt: b.completedAt ?? b.endAt } });
+    await chargeForSession(b, "system");
+  }
+  return due.length;
 }
 
 /**

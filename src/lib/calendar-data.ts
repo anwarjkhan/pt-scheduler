@@ -19,6 +19,11 @@ export type CalendarBooking = {
   location: { formatted: string; placeId: string | null; lat: number; lng: number };
   clientNote: string | null;
   seriesId: string | null;
+  /** Snapshot price in pence; null for bookings that predate pricing. */
+  priceAmountPence: number | null;
+  priceCurrency: string | null;
+  /** True once the session has been settled as a no-show. */
+  noShow: boolean;
   evaluation: SlotEvaluation;
 };
 
@@ -76,6 +81,9 @@ export async function buildCalendarDay(date: string): Promise<CalendarDay> {
       location: { formatted: b.location.formatted, placeId: b.location.placeId, lat: b.location.lat, lng: b.location.lng },
       clientNote: b.clientNote,
       seriesId: b.seriesId,
+      priceAmountPence: b.priceAmountPence,
+      priceCurrency: b.priceCurrency,
+      noShow: b.noShow,
       evaluation,
     });
   }
