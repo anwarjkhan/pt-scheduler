@@ -110,6 +110,9 @@ export default async function ClientHistoryPage({ params }: PageProps<"/trainer/
           note: e.note,
           createdAt: e.createdAt.toISOString(),
           runningBalance: e.runningBalance,
+          editedAt: e.editedAt ? e.editedAt.toISOString() : null,
+          originalAmountPence: e.originalAmountPence,
+          fromCard: e.fromCard,
           booking: e.booking
             ? { startAt: e.booking.startAt.toISOString(), durationMin: e.booking.durationMin, sessionType: e.booking.sessionType }
             : null,

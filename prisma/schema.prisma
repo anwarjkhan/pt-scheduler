@@ -326,17 +326,18 @@ model PriceRule {
   @@unique([sessionType, durationMin])
 }
 
-/// Append-only money movements for one client. Balance = SUM(amountPence).
-/// Credits are positive, debits negative. Rows are never updated or deleted —
-/// a mistake is corrected by writing a compensating entry, so the history
-/// always reconstructs the balance.
+/// Money movements for one client. Balance = SUM(amountPence).
+/// Credits are positive, debits negative. Rows are never deleted; the trainer
+/// may correct one, and the figures as first written are kept alongside, so
+/// the history always reconstructs the balance.
 model WalletEntry {
   id          String   @id @default(cuid())
   clientId    String
   /// + top-up / refund / settlement, − session charge / cancellation fee.
   amountPence Int
   currency    String   @default("GBP")
-  /// TOPUP | SESSION_CHARGE | CANCELLATION_FEE | REFUND | ADJUSTMENT | SETTLEMENT
+  /// TOPUP | SESSION_CHARGE | CANCELLATION_FEE | REFUND | ADJUSTMENT
+  /// | SETTLEMENT | CLEARDOWN
   reason      String
   /// Set for session-derived entries; null for top-ups and settlements.
   bookingId   String?
@@ -345,6 +346,24 @@ model WalletEntry {
   /// Who caused this entry — audit trail.
   createdById String
   createdAt   DateTime @default(now())
+
+  // ---------- Correction trail ----------
+  /// Set when the trainer has edited this row. The ledger stays
+  /// reconstructable: the figures as first written are kept below, so a
+  /// disputed charge can always be traced back.
+  editedAt            DateTime?
+  editedById          String?
+  /// The amount and note as originally entered, captured on the first edit
+  /// only — later edits do not overwrite the true original.
+  originalAmountPence Int?
+  originalNote        String?
+
+  // ---------- Card payment (Stripe) ----------
+  /// The Checkout Session that produced this entry. Unique, so a webhook
+  /// delivered twice — which Stripe does by design — credits only once.
+  stripeSessionId       String? @unique
+  /// The PaymentIntent behind it, for reconciliation against the dashboard.
+  stripePaymentIntentId String?
 
   client  User     @relation(fields: [clientId], references: [id], onDelete: Cascade)
   booking Booking? @relation(fields: [bookingId], references: [id], onDelete: SetNull)

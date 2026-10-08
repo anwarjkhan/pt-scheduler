@@ -3,6 +3,8 @@
 import { useActionState, useState } from "react";
 import { formatInTimeZone } from "date-fns-tz";
 import {
+  clearDownWallet,
+  editEntry,
   recordAdjustment,
   recordSettlement,
   recordTopUp,
@@ -26,6 +28,9 @@ export type LedgerEntry = {
   note: string | null;
   createdAt: string;
   runningBalance: number;
+  editedAt: string | null;
+  originalAmountPence: number | null;
+  fromCard: boolean;
   booking: { startAt: string; durationMin: number; sessionType: string } | null;
 };
 
@@ -42,9 +47,9 @@ export type StatementSummary = {
  *
  * The balance reads in words as well as sign — "£120.00 in credit" versus
  * "£45.00 owed" — because a minus sign alone is how people misread a
- * statement. There is deliberately no way to edit or delete a ledger entry:
- * the history is append-only, and a mistake is fixed with an adjustment that
- * leaves both the error and the correction visible.
+ * statement. A wrong row can be corrected, and what it first said is kept
+ * beside it; there is no delete, because a removed row is one nobody can
+ * account for later.
  */
 export function ClientWallet({
   clientId,
@@ -129,6 +134,9 @@ export function ClientWallet({
             allowNegative
             variant="outline"
           />
+          {balancePence !== 0 && (
+            <ClearDownDialog clientId={clientId} clientName={clientName} balancePence={balancePence} currency={currency} />
+          )}
         </CardContent>
       </Card>
 
@@ -136,7 +144,9 @@ export function ClientWallet({
         <Card className="lg:col-span-2">
           <CardHeader>
             <CardTitle>History</CardTitle>
-            <CardDescription>Every movement, newest first. Entries are never edited — corrections are new rows.</CardDescription>
+            <CardDescription>
+              Every movement, newest first. Editing a row keeps what it originally said, so the history still adds up.
+            </CardDescription>
           </CardHeader>
           <CardContent>
             {ledger.length === 0 ? (
@@ -157,6 +167,12 @@ export function ClientWallet({
                         </div>
                       )}
                       {e.note && <div className="mt-0.5">{e.note}</div>}
+                      {e.editedAt && (
+                        <div className="mt-0.5 italic">
+                          edited {formatInTimeZone(new Date(e.editedAt), tz, "d MMM")}
+                          {e.originalAmountPence != null && ` · was ${formatSigned(e.originalAmountPence, e.currency)}`}
+                        </div>
+                      )}
                     </div>
                     <div className="text-right">
                       <div className={cn("font-medium tabular-nums", e.amountPence < 0 ? "text-destructive" : "text-emerald-600 dark:text-emerald-400")}>
@@ -164,6 +180,7 @@ export function ClientWallet({
                       </div>
                       <div className="text-xs tabular-nums text-muted-foreground">{formatMoney(e.runningBalance, e.currency)}</div>
                     </div>
+                    {!e.fromCard && <EditEntryDialog entry={e} />}
                   </li>
                 ))}
               </ul>
@@ -364,5 +381,150 @@ function BillingSettings({
         </form>
       </CardContent>
     </Card>
+  );
+}
+
+/**
+ * Correct a row in place. The original figure is kept and shown beneath the
+ * corrected one, so the history still reconstructs.
+ */
+function EditEntryDialog({ entry }: { entry: LedgerEntry }) {
+  const [open, setOpen] = useState(false);
+  const [state, action, pending] = useActionState<WalletActionState, FormData>(async (prev, fd) => {
+    const r = await editEntry(prev, fd);
+    if (r.ok) setOpen(false);
+    return r;
+  }, {});
+
+  return (
+    <>
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className="text-xs text-muted-foreground underline underline-offset-2 hover:text-foreground"
+      >
+        Edit
+      </button>
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent>
+          <form action={action}>
+            <DialogHeader>
+              <DialogTitle>Edit this entry</DialogTitle>
+              <DialogDescription>
+                The amount as first written is kept and shown to the client alongside the correction, so the history
+                still adds up.
+              </DialogDescription>
+            </DialogHeader>
+            <input type="hidden" name="entryId" value={entry.id} />
+            <div className="space-y-4 py-4">
+              <div className="space-y-1">
+                <Label htmlFor={`edit-amount-${entry.id}`}>Amount</Label>
+                <div className="relative w-40">
+                  <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">£</span>
+                  <Input
+                    id={`edit-amount-${entry.id}`}
+                    name="amount"
+                    defaultValue={(entry.amountPence / 100).toFixed(2)}
+                    inputMode="decimal"
+                    className="pl-7"
+                    autoFocus
+                  />
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  {entry.reason === "ADJUSTMENT"
+                    ? "Use a minus sign to charge rather than credit."
+                    : entry.amountPence < 0
+                      ? "This is a charge — the amount stays a charge however you type it."
+                      : "This is a credit — the amount stays a credit however you type it."}
+                </p>
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor={`edit-note-${entry.id}`}>Note</Label>
+                <Input id={`edit-note-${entry.id}`} name="note" defaultValue={entry.note ?? ""} maxLength={200} />
+              </div>
+              {state.error && <p className="text-sm text-destructive">{state.error}</p>}
+            </div>
+            <DialogFooter className="gap-2">
+              <Button type="button" variant="ghost" onClick={() => setOpen(false)} disabled={pending}>
+                Cancel
+              </Button>
+              <Button type="submit" disabled={pending}>
+                {pending ? "Saving…" : "Save changes"}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+    </>
+  );
+}
+
+/**
+ * Zero a wallet when the client is leaving or has been refunded offline.
+ * Writes one entry for the exact balance, so the ledger stays honest without
+ * implying the app moved any money.
+ */
+function ClearDownDialog({
+  clientId,
+  clientName,
+  balancePence,
+  currency,
+}: {
+  clientId: string;
+  clientName: string;
+  balancePence: number;
+  currency: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const [state, action, pending] = useActionState<WalletActionState, FormData>(async (prev, fd) => {
+    const r = await clearDownWallet(prev, fd);
+    if (r.ok) setOpen(false);
+    return r;
+  }, {});
+
+  const credit = balancePence > 0;
+
+  return (
+    <>
+      <Button size="sm" variant="ghost" onClick={() => setOpen(true)}>
+        Clear balance
+      </Button>
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent>
+          <form action={action}>
+            <DialogHeader>
+              <DialogTitle>Clear {clientName}&apos;s balance?</DialogTitle>
+              <DialogDescription>
+                {credit
+                  ? `This zeroes ${formatMoney(balancePence, currency)} of credit — use it once you've refunded them. The app doesn't move any money; this just records it.`
+                  : `This writes off ${formatMoney(Math.abs(balancePence), currency)} they owe. The app doesn't move any money; this just records it.`}
+              </DialogDescription>
+            </DialogHeader>
+            <input type="hidden" name="clientId" value={clientId} />
+            <div className="space-y-4 py-4">
+              <div className="space-y-1">
+                <Label htmlFor="cleardown-note">What happened to it?</Label>
+                <Input
+                  id="cleardown-note"
+                  name="note"
+                  maxLength={200}
+                  placeholder={credit ? "Refunded by bank transfer" : "Written off"}
+                  autoFocus
+                />
+              </div>
+              {state.error && <p className="text-sm text-destructive">{state.error}</p>}
+            </div>
+            <DialogFooter className="gap-2">
+              <Button type="button" variant="ghost" onClick={() => setOpen(false)} disabled={pending}>
+                Cancel
+              </Button>
+              <Button type="submit" variant="destructive" disabled={pending}>
+                {pending ? "Clearing…" : "Clear to zero"}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }

@@ -2,14 +2,17 @@ import { db } from "@/lib/db";
 import { Prisma } from "@prisma/client";
 
 /**
- * The client wallet: an append-only ledger whose balance is derived, never
- * stored.
+ * The client wallet: a ledger whose balance is derived, never stored.
  *
  * A single mutable `balancePence` column would silently drift the first time
  * two requests race or a refund was half-applied, and there would be no way to
- * reconstruct what happened. Here every movement is a row, the balance is
- * SUM(amountPence), and a mistake is corrected by writing a compensating entry
- * rather than editing history.
+ * reconstruct what happened. Here every movement is a row and the balance is
+ * SUM(amountPence).
+ *
+ * The trainer may correct a row, but never invisibly: the first edit captures
+ * the amount and note as originally written, and both figures are shown to the
+ * client. A card payment cannot be edited at all, because the ledger has to
+ * keep matching what Stripe actually moved.
  *
  * Both billing modes write the same entries. They differ only in which sign
  * the balance is expected to carry: WALLET clients pre-pay and run positive,
@@ -26,6 +29,7 @@ export const WALLET_REASONS = [
   "REFUND",
   "ADJUSTMENT",
   "SETTLEMENT",
+  "CLEARDOWN",
 ] as const;
 export type WalletReason = (typeof WALLET_REASONS)[number];
 
@@ -37,11 +41,17 @@ export const REASON_LABELS: Record<WalletReason, string> = {
   REFUND: "Refund",
   ADJUSTMENT: "Adjustment",
   SETTLEMENT: "Payment received",
+  CLEARDOWN: "Balance cleared",
 };
 
 /** Credits are positive, debits negative — enforced here rather than at each call site. */
 export function isCredit(reason: WalletReason): boolean {
   return reason === "TOPUP" || reason === "REFUND" || reason === "SETTLEMENT";
+}
+
+/** A cleared-down wallet nets to zero, so the entry can go either way. */
+export function isClearDown(reason: string): boolean {
+  return reason === "CLEARDOWN";
 }
 
 /** Current balance in pence. Positive = credit held, negative = owed. */
@@ -70,6 +80,11 @@ export type LedgerRow = {
   createdAt: Date;
   bookingId: string | null;
   booking: { startAt: Date; durationMin: number; sessionType: string } | null;
+  /** Set when the trainer has corrected this row; the original is kept. */
+  editedAt: Date | null;
+  originalAmountPence: number | null;
+  /** True for a card payment, which cannot be edited (it must match Stripe). */
+  fromCard: boolean;
   /** Balance after this entry, oldest-first. */
   runningBalance: number;
 };
@@ -91,7 +106,7 @@ export async function getLedger(clientId: string, take?: number): Promise<Ledger
   let running = 0;
   const withBalance = rows.map((r) => {
     running += r.amountPence;
-    return { ...r, runningBalance: running };
+    return { ...r, fromCard: !!r.stripeSessionId, runningBalance: running };
   });
 
   withBalance.reverse();
