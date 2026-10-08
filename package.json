@@ -14,7 +14,8 @@
     "postinstall": "prisma generate",
     "db:seed:history": "tsx prisma/seed-history.ts",
     "db:seed:future": "tsx prisma/seed-future.ts",
-    "db:seed:batch": "tsx prisma/seed-batch.ts"
+    "db:seed:batch": "tsx prisma/seed-batch.ts",
+    "db:seed:wallets": "tsx prisma/seed-wallets.ts"
   },
   "dependencies": {
     "@auth/prisma-adapter": "^2.11.3",
