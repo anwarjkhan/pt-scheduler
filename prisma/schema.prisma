@@ -37,6 +37,15 @@ model User {
   cancellationNoticeHours Int?
   cancellationDepositPct  Int?
 
+  // ---------- Health scoring ----------
+  /// Exclude this client from health scoring. For the cases the numbers get
+  /// wrong — illness, bereavement, a long planned break — where repeated
+  /// cancellations say nothing about whether they are a good client.
+  /// TRAINER-ONLY. Never surfaced on a client-facing page.
+  healthExempt       Boolean @default(false)
+  /// Why they are exempt. Private to the trainer.
+  healthExemptReason String?
+
   accounts      Account[]
   sessions      Session[]
   locations     Location[]
@@ -263,6 +272,17 @@ model Booking {
   /// True when the client simply did not turn up. Charged as a late
   /// cancellation rather than a full session.
   noShow           Boolean   @default(false)
+
+  // ---------- Reschedule trail ----------
+  /// How many times this session has been moved. A client who shifts every
+  /// appointment is real work, and without this they look identical to one who
+  /// never moves any. Counting is enough — a full move-by-move history is a
+  /// separate decision.
+  rescheduleCount   Int       @default(0)
+  lastRescheduledAt DateTime?
+  /// Who moved it last: TRAINER | CLIENT. A session Toby moved is not the
+  /// client's doing and must never count against them.
+  rescheduledBy     String?
 
   client        User           @relation(fields: [clientId], references: [id], onDelete: Cascade)
   series        BookingSeries? @relation(fields: [seriesId], references: [id], onDelete: SetNull)

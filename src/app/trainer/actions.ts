@@ -293,7 +293,19 @@ export async function rescheduleBooking(id: string, startTime: string): Promise<
   if (ev.overlaps) return { error: "That clashes with another session." };
   if (ev.outsideAvailability) return { error: "That's outside your available hours." };
 
-  await db.booking.update({ where: { id }, data: { startAt: start, endAt: end } });
+  // Record the move. This is the trainer dragging on their own calendar, so it
+  // is attributed to TRAINER and must never count against the client's
+  // reliability — see src/lib/client-health.ts.
+  await db.booking.update({
+    where: { id },
+    data: {
+      startAt: start,
+      endAt: end,
+      rescheduleCount: { increment: 1 },
+      lastRescheduledAt: new Date(),
+      rescheduledBy: "TRAINER",
+    },
+  });
   // The room's join window was bound to the old times, so drop it — the join
   // route mints a fresh one against the new slot.
   await dropRoom(id);
