@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState, useState } from "react";
+import Link from "next/link";
 import { saveHealthExemption, type WalletActionState } from "./wallet-actions";
 import { scoreBand, STATUS_META, type ClientHealth, type HealthStatus, type OverallScore } from "@/lib/client-health";
 import { Button } from "@/components/ui/button";
@@ -82,8 +83,10 @@ export function ClientHealthPanel({
           })}
         </ul>
         <p className="mt-3 text-xs text-muted-foreground">
-          Weights are yours to set in Settings → Billing. A dimension that can&apos;t be measured is left out rather
-          than counted as zero.
+          A measure that can&apos;t be worked out is left out rather than counted as zero.{" "}
+          <Link href="/trainer/guide/scoring" className="font-medium text-tjm-orange hover:underline">
+            How scoring works
+          </Link>
         </p>
       </CardContent>
     </Card>

@@ -12,6 +12,7 @@ export default async function TrainerLayout({ children }: LayoutProps<"/trainer"
         { href: "/trainer/availability", label: "Availability" },
         { href: "/trainer/clients", label: "Clients" },
         { href: "/trainer/settings", label: "Settings" },
+        { href: "/trainer/guide", label: "Guide" },
       ]}
     >
       {children}

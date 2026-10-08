@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState } from "react";
+import Link from "next/link";
 import { saveBillingSettings, type SettingsState } from "./actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -43,6 +44,17 @@ export function Billing({
 
   return (
     <form action={action} className="space-y-6">
+      <p className="text-sm text-muted-foreground">
+        Not sure what a setting does?{" "}
+        <Link href="/trainer/guide/pricing" className="font-medium text-tjm-orange hover:underline">
+          How pricing works
+        </Link>{" "}
+        and{" "}
+        <Link href="/trainer/guide/scoring" className="font-medium text-tjm-orange hover:underline">
+          how scoring works
+        </Link>{" "}
+        explain these with your own numbers.
+      </p>
       <Card>
         <CardHeader>
           <CardTitle>Session prices</CardTitle>
