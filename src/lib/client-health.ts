@@ -215,8 +215,10 @@ export function effort(f: ClientFacts): Dimension {
   const parts: string[] = [];
   let score = 100;
 
-  // Travel is the dominant term, so with it unknown there is nothing solid to
-  // score. Say so rather than showing a confident full mark.
+  // Travel is the dominant term, but it is not the only one: a client who
+  // moves every session is measurable work even where the drive is not. Score
+  // confidently when either is known, so reschedule churn is never invisible
+  // just because the commute cache is empty.
   const travelKnown = f.travelHours != null && f.hoursDelivered > 0;
   if (travelKnown) {
     const ratio = f.travelHours! / f.hoursDelivered;
@@ -228,16 +230,17 @@ export function effort(f: ClientFacts): Dimension {
   }
 
   if (f.reschedulesByClient > 0) {
-    score -= Math.min(25, f.reschedulesByClient * 5);
+    // Relative to how often they train: three moves across six months is
+    // forgivable, three across six sessions is a pattern.
+    const perSession = f.reschedulesByClient / Math.max(1, f.completed);
+    score -= Math.min(50, perSession * 100);
     parts.push(`moved ${plural(f.reschedulesByClient, "time")}`);
   }
 
   return {
     score: pct(score),
     reason: parts.join(" · "),
-    // Only a real reading once travel is known; otherwise this is just the
-    // reschedule count wearing a score.
-    confident: hasEnoughHistory(f) && travelKnown,
+    confident: hasEnoughHistory(f) && (travelKnown || f.reschedulesByClient > 0),
   };
 }
 
@@ -405,14 +408,15 @@ export function computeHealth(f: ClientFacts, weights: ScoreWeights = DEFAULT_WE
       ...dims,
       overall,
       status: "ATTENTION",
-      headline: f.noShows > 0 ? `${plural(f.noShows, "no-show")} · ${dims.reliability.reason}` : dims.reliability.reason,
+      // reliability.reason already names the no-shows, so it is not repeated here.
+      headline: dims.reliability.reason,
     };
   }
 
-  if (f.balancePence < 0 && (f.daysInDebtFor ?? 0) >= 30) {
-    return { ...dims, overall, status: "ATTENTION", headline: dims.payment.reason };
-  }
-
+  // Drifting is checked before an ordinary debt: a client who has stopped
+  // coming is the more urgent conversation, and the unpaid balance is usually
+  // a symptom of that rather than the thing to lead with. A long-standing debt
+  // (45 days) is still caught earlier, above.
   if (isDrifting(f)) {
     return {
       ...dims,
@@ -422,7 +426,22 @@ export function computeHealth(f: ClientFacts, weights: ScoreWeights = DEFAULT_WE
     };
   }
 
-  if (dims.reliability.score >= 90 && dims.value.score >= 70 && dims.payment.score >= 90) {
+  if (f.balancePence < 0 && (f.daysInDebtFor ?? 0) >= 30) {
+    return { ...dims, overall, status: "ATTENTION", headline: dims.payment.reason };
+  }
+
+  // Deliberately demanding: a badge most clients carry tells the trainer
+  // nothing. Star means near-perfect attendance, a strong rate, settled up,
+  // and enough sessions behind it to be more than a good month.
+  const movesALot = f.reschedulesByClient / Math.max(1, f.completed) > 0.5;
+  if (
+    dims.reliability.score >= 95 &&
+    dims.value.score >= 85 &&
+    dims.payment.score >= 95 &&
+    f.completed >= 10 &&
+    !movesALot &&
+    !isDrifting(f)
+  ) {
     return {
       ...dims,
       overall,

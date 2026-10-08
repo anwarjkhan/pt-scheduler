@@ -244,7 +244,7 @@ describe("a trainer cancellation is not the client's fault", () => {
     // client stays perfect. Pinned here so the exclusion cannot regress.
     const h = computeHealth(f({ completed: 20, cancellations: [] }));
     expect(h.reliability.score).toBe(100);
-    expect(h.status).toBe("STAR");
+    expect(h.status).not.toBe("ATTENTION");
   });
 });
 
@@ -400,5 +400,61 @@ describe("the provisional ceiling", () => {
     const strong = computeHealth(f({ completed: 3, tenureDays: 10, balancePence: 36000 }));
     expect(weak.overall!.score).toBeLessThan(strong.overall!.score);
     expect(weak.overall!.score).toBeLessThan(PROVISIONAL_CEILING);
+  });
+});
+
+describe("Star is meant to be rare", () => {
+  it("is withheld from a good client with only a handful of sessions", () => {
+    const h = computeHealth(f({ completed: 6, tenureDays: 90, balancePence: 36000 }));
+    expect(h.status).toBe("STEADY");
+  });
+
+  it("is withheld from someone who has stopped coming", () => {
+    const h = computeHealth(f({ balancePence: 36000, daysSinceLastSession: 40 }));
+    expect(h.status).toBe("DRIFTING");
+  });
+
+  it("is given to a long-standing, reliable, settled-up client", () => {
+    expect(computeHealth(f({ balancePence: 36000 })).status).toBe("STAR");
+  });
+});
+
+describe("what to lead with when several things are wrong", () => {
+  it("raises drifting ahead of an ordinary unpaid balance", () => {
+    // Stopped coming AND owes money: the silence is the urgent part.
+    const h = computeHealth(f({ daysSinceLastSession: 40, balancePence: -9500, daysInDebtFor: 35 }));
+    expect(h.status).toBe("DRIFTING");
+  });
+
+  it("still leads with a debt once it is long-standing", () => {
+    const h = computeHealth(f({ daysSinceLastSession: 40, balancePence: -9500, daysInDebtFor: 60 }));
+    expect(h.status).toBe("ATTENTION");
+    expect(h.headline).toMatch(/owed/);
+  });
+
+  it("names no-shows once, not twice", () => {
+    const h = computeHealth(f({ completed: 10, noShows: 2 }));
+    expect(h.headline.match(/no-show/g)?.length).toBe(1);
+  });
+});
+
+describe("reschedule churn is never invisible", () => {
+  it("counts even when travel has not been measured", () => {
+    const settled = computeHealth(f({ travelHours: null, reschedulesByClient: 0 }));
+    const churner = computeHealth(f({ travelHours: null, reschedulesByClient: 15 }));
+    expect(churner.effort.confident).toBe(true);
+    expect(churner.overall!.score).toBeLessThan(settled.overall!.score);
+  });
+
+  it("judges moves against how often they train", () => {
+    // Three moves over twenty sessions is forgivable; three over six is not.
+    const occasional = computeHealth(f({ completed: 20, reschedulesByClient: 3, travelHours: null }));
+    const habitual = computeHealth(f({ completed: 6, tenureDays: 90, reschedulesByClient: 3, travelHours: null }));
+    expect(habitual.effort.score).toBeLessThan(occasional.effort.score);
+  });
+
+  it("keeps Star from someone who moves most of their sessions", () => {
+    const h = computeHealth(f({ balancePence: 36000, reschedulesByClient: 14, travelHours: null }));
+    expect(h.status).not.toBe("STAR");
   });
 });
