@@ -24,11 +24,25 @@ model User {
   notifyEmail      Boolean   @default(true) // booking status emails (stored only — no mail service yet)
   notifyReminders  Boolean   @default(true) // 24h session reminders
 
-  accounts  Account[]
-  sessions  Session[]
-  locations Location[]
-  bookings  Booking[]
-  series    BookingSeries[]
+  // ---------- Billing ----------
+  /// WALLET — spends down pre-paid credit. MONTHLY — accrues charges, settled at month end.
+  /// Both modes write the same ledger entries; they differ only in whether the
+  /// balance is expected to be positive (pre-paid) or negative (owed).
+  billingMode             String @default("MONTHLY")
+  /// Overrides PriceRule for this client. JSON map of "TYPE:minutes" → pence,
+  /// e.g. { "IN_PERSON:60": 5500 }. Null uses the standard rates.
+  customRates             Json?
+  /// Per-client cancellation policy. Null on either field inherits the
+  /// corresponding TrainerSettings default.
+  cancellationNoticeHours Int?
+  cancellationDepositPct  Int?
+
+  accounts      Account[]
+  sessions      Session[]
+  locations     Location[]
+  bookings      Booking[]
+  series        BookingSeries[]
+  walletEntries WalletEntry[]
 }
 
 model Account {
@@ -77,7 +91,20 @@ model TrainerSettings {
   maxRadiusMiles  Float   @default(15)
   bufferMinutes   Int     @default(10)
   slotStepMinutes Int     @default(30)
+  /// How far ahead a client must book. Deliberately separate from
+  /// cancellationNoticeHours: "how far ahead must you book" and "how late can
+  /// you cancel free" are different questions with different answers.
   minNoticeHours  Int     @default(24)
+
+  // ---------- Billing ----------
+  /// ISO 4217. One currency for the whole app until there is a second one.
+  currency                String @default("GBP")
+  /// Global cancellation policy. Clients may override either field.
+  cancellationNoticeHours Int    @default(24)
+  /// Percent of the session price charged for a late cancellation or no-show.
+  cancellationDepositPct  Int    @default(40)
+  /// ACCEPTED sessions this many hours past their end are swept to COMPLETED.
+  autoCompleteAfterHours  Int    @default(24)
 }
 
 /// Towns/areas the trainer covers, each with its own radius. When none exist, TrainerSettings.maxRadiusMiles
@@ -223,13 +250,29 @@ model Booking {
   cancelledAt  DateTime?
   createdAt    DateTime  @default(now())
 
-  client    User           @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  series    BookingSeries? @relation(fields: [seriesId], references: [id], onDelete: SetNull)
-  location  Location       @relation(fields: [locationId], references: [id])
-  videoRoom VideoRoom?
+  // ---------- Billing ----------
+  /// The agreed price, resolved once at creation and never recomputed — a later
+  /// rate change must not alter what the client already agreed to. Null means
+  /// "legacy, not chargeable": rows that predate pricing never debit a wallet.
+  priceAmountPence Int?
+  priceCurrency    String?
+  /// When the session became chargeable. Set by the trainer or the sweep;
+  /// null while it has not happened. Distinct from status so the sweep can
+  /// find un-swept rows cheaply.
+  completedAt      DateTime?
+  /// True when the client simply did not turn up. Charged as a late
+  /// cancellation rather than a full session.
+  noShow           Boolean   @default(false)
+
+  client        User           @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  series        BookingSeries? @relation(fields: [seriesId], references: [id], onDelete: SetNull)
+  location      Location       @relation(fields: [locationId], references: [id])
+  videoRoom     VideoRoom?
+  walletEntries WalletEntry[]
 
   @@index([startAt, status])
   @@index([clientId])
+  @@index([status, endAt])
 }
 
 /// A Daily.co room backing one ONLINE session. Created when the trainer accepts
@@ -265,4 +308,51 @@ model CommuteCache {
   fetchedAt DateTime @default(now())
 
   @@unique([fromKey, toKey])
+}
+
+// ---------- Billing ----------
+
+/// What one session costs, keyed by the pair every booking already carries.
+/// Trainer-editable; a missing pair means that combination is not sold, which
+/// is surfaced as an error rather than silently priced at zero.
+model PriceRule {
+  id          String   @id @default(cuid())
+  sessionType String // IN_PERSON | ONLINE
+  durationMin Int
+  amountPence Int
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([sessionType, durationMin])
+}
+
+/// Append-only money movements for one client. Balance = SUM(amountPence).
+/// Credits are positive, debits negative. Rows are never updated or deleted —
+/// a mistake is corrected by writing a compensating entry, so the history
+/// always reconstructs the balance.
+model WalletEntry {
+  id          String   @id @default(cuid())
+  clientId    String
+  /// + top-up / refund / settlement, − session charge / cancellation fee.
+  amountPence Int
+  currency    String   @default("GBP")
+  /// TOPUP | SESSION_CHARGE | CANCELLATION_FEE | REFUND | ADJUSTMENT | SETTLEMENT
+  reason      String
+  /// Set for session-derived entries; null for top-ups and settlements.
+  bookingId   String?
+  /// The trainer's words, shown to the client on their wallet page.
+  note        String?
+  /// Who caused this entry — audit trail.
+  createdById String
+  createdAt   DateTime @default(now())
+
+  client  User     @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  booking Booking? @relation(fields: [bookingId], references: [id], onDelete: SetNull)
+
+  /// One charge per booking per reason. This is the idempotency guard: a
+  /// double-click, a retried action or a second sweep cannot debit twice.
+  /// Postgres treats NULLs as distinct, so this constrains only the
+  /// booking-derived entries — top-ups stay free to repeat.
+  @@unique([bookingId, reason])
+  @@index([clientId, createdAt])
 }
