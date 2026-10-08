@@ -56,6 +56,38 @@ existing deployments — redeploy for it to take effect.
 | `DEV_LOGIN`, `DEMO_MODE`, `DEMO_PASSCODE` | Passcode-gated demo sign-in — see below |
 | `GOOGLE_MAPS_SERVER_KEY` | Optional; without it, postcodes.io and straight-line estimates are used |
 | `DAILY_API_KEY` | Optional; without it, online sessions book as normal but show no Join button |
+| `STRIPE_SECRET_KEY` / `STRIPE_WEBHOOK_SECRET` | Optional, but needed **together**; without both, the card top-up button is hidden and wallets stay ledger-only |
+
+## Card top-ups
+
+Clients can top up their wallet by card from `/app/wallet`. Both Stripe variables
+must be set, or the button does not appear and the trainer records payments by hand
+as before.
+
+The wallet is credited by the **webhook**, never by the browser returning to the
+success URL — that only proves someone loaded a page. Point a Stripe endpoint at:
+
+```
+https://<your-domain>/api/stripe/webhook
+```
+
+subscribed to `checkout.session.completed`, and put its signing secret in
+`STRIPE_WEBHOOK_SECRET`. Locally, use the Stripe CLI instead:
+
+```bash
+stripe listen --forward-to localhost:3000/api/stripe/webhook
+```
+
+It prints a `whsec_…` secret for your `.env`. Test card `4242 4242 4242 4242`,
+any future expiry and CVC.
+
+Stripe retries a webhook until it gets a 2xx and may deliver the same event twice;
+a unique index on `stripeSessionId` means a replay credits the wallet only once.
+Card entries cannot be edited in the app, so the ledger keeps matching Stripe.
+
+Sessions are charged against the wallet **balance**, never against a saved card.
+Off-session charging would bring SCA and failed-payment recovery with it, and is
+deliberately out of scope.
 
 ## Demo access
 

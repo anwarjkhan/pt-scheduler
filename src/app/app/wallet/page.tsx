@@ -6,7 +6,10 @@ import { getBalance, getLedger, REASON_LABELS, type WalletReason } from "@/lib/w
 import { resolvePolicy } from "@/lib/cancellation";
 import { formatMoney, formatSigned } from "@/lib/pricing";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { cn } from "@/lib/utils";
+import { stripeConfigured } from "@/lib/stripe";
+import { TopUpButton } from "./top-up-button";
 
 /**
  * The client's own view of their money.
@@ -15,8 +18,9 @@ import { cn } from "@/lib/utils";
  * cancellation terms in words. A client should be able to read their own
  * policy without having to ask the trainer what it is.
  */
-export default async function WalletPage() {
+export default async function WalletPage({ searchParams }: PageProps<"/app/wallet">) {
   const user = await requireUser();
+  const { topup } = await searchParams;
   const settings = await getTrainerSettings();
   const tz = settings.timezone;
 
@@ -35,9 +39,25 @@ export default async function WalletPage() {
   const inCredit = balance > 0;
   const owed = balance < 0;
 
+  const canPayByCard = stripeConfigured();
+
   return (
     <div className="space-y-6">
       <h1 className="font-heading text-2xl font-semibold">Wallet</h1>
+
+      {topup === "success" && (
+        <Alert>
+          <AlertDescription>
+            Thanks — your payment went through. The credit appears below as soon as it clears, usually within a few
+            seconds. Refresh if you don&apos;t see it yet.
+          </AlertDescription>
+        </Alert>
+      )}
+      {topup === "cancelled" && (
+        <Alert>
+          <AlertDescription>Payment cancelled — nothing was charged.</AlertDescription>
+        </Alert>
+      )}
 
       <Card>
         <CardHeader>
@@ -61,12 +81,21 @@ export default async function WalletPage() {
           <p className="mt-1 text-sm text-muted-foreground">
             {balance === 0
               ? wallet
-                ? "No credit left — top up with Toby before your next session."
+                ? canPayByCard
+                  ? "No credit left — top up to book your next session."
+                  : "No credit left — top up with Toby before your next session."
                 : "Nothing outstanding."
               : inCredit
                 ? "in credit"
-                : "owed — settle this with Toby."}
+                : canPayByCard
+                  ? "owed — pay by card below, or settle with Toby."
+                  : "owed — settle this with Toby."}
           </p>
+          {canPayByCard && (
+            <div className="mt-4">
+              <TopUpButton />
+            </div>
+          )}
         </CardContent>
       </Card>
 
@@ -117,6 +146,12 @@ export default async function WalletPage() {
                       </div>
                     )}
                     {e.note && <div className="mt-0.5">{e.note}</div>}
+                    {e.editedAt && (
+                      <div className="mt-0.5 italic">
+                        corrected {formatInTimeZone(e.editedAt, tz, "d MMM")}
+                        {e.originalAmountPence != null && ` · was ${formatSigned(e.originalAmountPence, e.currency)}`}
+                      </div>
+                    )}
                   </div>
                   <div className="text-right">
                     <div
