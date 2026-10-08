@@ -2,8 +2,10 @@ import Link from "next/link";
 import { formatInTimeZone } from "date-fns-tz";
 import { db } from "@/lib/db";
 import { requireUser } from "@/lib/session";
-import { getSchedulingSettings } from "@/lib/settings";
-import { canClientCancel } from "@/lib/scheduling";
+import { getTrainerSettings } from "@/lib/settings";
+import { getBalance } from "@/lib/wallet";
+import { formatMoney } from "@/lib/pricing";
+import { sweepCompletedSessions } from "@/app/trainer/actions";
 import { canJoin } from "@/lib/video-window";
 import { StatusBadge } from "@/components/status-badge";
 import { CancelButton } from "./cancel-button";
@@ -16,9 +18,13 @@ import { MapLink } from "@/components/map-link";
 export default async function ClientHome({ searchParams }: PageProps<"/app">) {
   const user = await requireUser();
   const { requested } = await searchParams;
-  const settings = await getSchedulingSettings();
+  // Finish off any sessions the trainer never marked, so a client's balance is
+  // not stale when they look at it. Idempotent and cheap when nothing is due.
+  await sweepCompletedSessions();
+  const settings = await getTrainerSettings();
   const tz = settings.timezone;
   const now = new Date();
+  const balance = await getBalance(user.id);
 
   const bookings = await db.booking.findMany({
     where: { clientId: user.id },
@@ -32,7 +38,16 @@ export default async function ClientHome({ searchParams }: PageProps<"/app">) {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="font-heading text-2xl font-semibold">My sessions</h1>
-        <Button nativeButton={false} render={<Link href="/?cal=1" />}>Book a session</Button>
+        <div className="flex items-center gap-3">
+          <Link href="/app/wallet" className="text-sm text-muted-foreground hover:underline">
+            {balance === 0
+              ? "Wallet"
+              : balance > 0
+                ? `${formatMoney(balance, settings.currency)} in credit`
+                : `${formatMoney(Math.abs(balance), settings.currency)} owed`}
+          </Link>
+          <Button nativeButton={false} render={<Link href="/?cal=1" />}>Book a session</Button>
+        </div>
       </div>
 
       {requested && (
@@ -81,12 +96,7 @@ export default async function ClientHome({ searchParams }: PageProps<"/app">) {
                   {b.status === "CANCELLED_BY_TRAINER" && b.cancelReason && (
                     <span className="text-xs text-muted-foreground">{b.cancelReason}</span>
                   )}
-                  <CancelButton
-                    bookingId={b.id}
-                    inSeries={!!b.seriesId}
-                    allowed={canClientCancel(b.startAt, settings.minNoticeHours, now)}
-                    minNoticeHours={settings.minNoticeHours}
-                  />
+                  <CancelButton bookingId={b.id} inSeries={!!b.seriesId} />
                 </li>
               ))}
             </ul>

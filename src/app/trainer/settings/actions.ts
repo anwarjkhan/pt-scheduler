@@ -237,3 +237,72 @@ export async function moveSocialPost(id: string, direction: "up" | "down") {
   await db.$transaction(all.map((p, k) => db.socialPost.update({ where: { id: p.id }, data: { sortOrder: k } })));
   revalidatePath("/", "layout");
 }
+
+// ---------- Billing ----------
+
+/**
+ * Prices and the global cancellation policy.
+ *
+ * Rates are keyed by (sessionType, durationMin) — the pair every booking
+ * already carries — so the form posts one field per cell of the grid. A blank
+ * cell deletes the rule, which makes that combination unsellable rather than
+ * free; booking it then errors instead of quietly pricing at zero.
+ */
+const billingSchema = z.object({
+  currency: z.string().trim().length(3, "Use a 3-letter currency code").toUpperCase(),
+  cancellationNoticeHours: z.coerce.number().int().min(0).max(168),
+  cancellationDepositPct: z.coerce.number().int().min(0).max(100),
+  autoCompleteAfterHours: z.coerce.number().int().min(1).max(720),
+});
+
+/** "60" / "60.50" / "" → pence, or null for a blank cell. */
+function parsePounds(raw: string): number | null | undefined {
+  const v = raw.replace(/[£,\s]/g, "").trim();
+  if (v === "") return null;
+  if (!/^\d+(\.\d{1,2})?$/.test(v)) return undefined; // invalid
+  return Math.round(parseFloat(v) * 100);
+}
+
+export async function saveBillingSettings(_prev: SettingsState, fd: FormData): Promise<SettingsState> {
+  await requireTrainer();
+  const raw = Object.fromEntries(fd) as Record<string, string>;
+  const parsed = billingSchema.safeParse(raw);
+  if (!parsed.success) return { error: parsed.error.issues.map((i) => i.message).join("; ") };
+  const d = parsed.data;
+
+  // Rate cells arrive as "rate:IN_PERSON:60".
+  const writes: { sessionType: string; durationMin: number; amountPence: number }[] = [];
+  const deletes: { sessionType: string; durationMin: number }[] = [];
+  for (const [key, value] of Object.entries(raw)) {
+    if (!key.startsWith("rate:")) continue;
+    const [, sessionType, duration] = key.split(":");
+    const durationMin = Number(duration);
+    if (!sessionType || !Number.isInteger(durationMin)) continue;
+    const pence = parsePounds(String(value));
+    if (pence === undefined) return { error: `"${value}" isn't a valid price — use a number like 60 or 60.50.` };
+    if (pence === null) deletes.push({ sessionType, durationMin });
+    else writes.push({ sessionType, durationMin, amountPence: pence });
+  }
+
+  await db.$transaction([
+    db.trainerSettings.upsert({
+      where: { id: "singleton" },
+      update: d,
+      create: { id: "singleton", ...d },
+    }),
+    ...writes.map((w) =>
+      db.priceRule.upsert({
+        where: { sessionType_durationMin: { sessionType: w.sessionType, durationMin: w.durationMin } },
+        update: { amountPence: w.amountPence },
+        create: w,
+      }),
+    ),
+    ...deletes.map((x) =>
+      db.priceRule.deleteMany({ where: { sessionType: x.sessionType, durationMin: x.durationMin } }),
+    ),
+  ]);
+
+  revalidatePath("/trainer", "layout");
+  revalidatePath("/app", "layout");
+  return { ok: true };
+}

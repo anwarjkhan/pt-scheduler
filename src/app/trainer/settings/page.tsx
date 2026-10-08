@@ -6,9 +6,10 @@ import { ServiceAreas } from "./service-areas";
 import { Pillars } from "./pillars";
 import { SocialPosts } from "./social-posts";
 import { SettingsTabs } from "./settings-tabs";
+import { Billing } from "./billing";
 
 export default async function SettingsPage() {
-  const [s, areas, pillars, pillarCount, socialPosts] = await Promise.all([
+  const [s, areas, pillars, pillarCount, socialPosts, priceRules] = await Promise.all([
     getTrainerSettings(),
     db.serviceArea.findMany({ orderBy: { createdAt: "asc" }, select: { id: true, label: true, formatted: true, placeId: true, lat: true, lng: true, radiusMiles: true } }),
     getPillars(),
@@ -17,7 +18,9 @@ export default async function SettingsPage() {
       orderBy: [{ sortOrder: "asc" }, { createdAt: "desc" }],
       select: { id: true, caption: true, posterUrl: true, videoUrl: true, permalink: true },
     }),
+    db.priceRule.findMany(),
   ]);
+  const rates = Object.fromEntries(priceRules.map((r) => [`${r.sessionType}:${r.durationMin}`, r.amountPence]));
   return (
     <div className="space-y-6">
       <h1 className="font-heading text-2xl font-semibold">Settings</h1>
@@ -38,6 +41,17 @@ export default async function SettingsPage() {
           />
         }
         areas={<ServiceAreas areas={areas} fallbackMiles={s.maxRadiusMiles} />}
+        billing={
+          <Billing
+            rates={rates}
+            initial={{
+              currency: s.currency,
+              cancellationNoticeHours: s.cancellationNoticeHours,
+              cancellationDepositPct: s.cancellationDepositPct,
+              autoCompleteAfterHours: s.autoCompleteAfterHours,
+            }}
+          />
+        }
         website={
           <div className="space-y-6">
             <Pillars pillars={pillars} usingFallback={pillarCount === 0} />

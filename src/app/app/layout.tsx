@@ -10,6 +10,7 @@ export default async function ClientLayout({ children }: LayoutProps<"/app">) {
         { href: "/?cal=1", label: "Book" },
         { href: "/app", label: "My sessions" },
         { href: "/app/locations", label: "Locations" },
+        { href: "/app/wallet", label: "Wallet" },
         ...(user.role === "TRAINER" ? [{ href: "/trainer", label: "Trainer view" }] : []),
       ]}
     >

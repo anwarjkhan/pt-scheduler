@@ -6,6 +6,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 const TABS = [
   { value: "scheduling", label: "Scheduling" },
   { value: "areas", label: "Service areas" },
+  { value: "billing", label: "Billing" },
   { value: "website", label: "Website" },
 ] as const;
 
@@ -31,7 +32,17 @@ function getRemembered(): string | null {
  * going back and forth with the live site, and landing on the first tab every
  * time is tedious.
  */
-export function SettingsTabs({ scheduling, areas, website }: { scheduling: ReactNode; areas: ReactNode; website: ReactNode }) {
+export function SettingsTabs({
+  scheduling,
+  areas,
+  billing,
+  website,
+}: {
+  scheduling: ReactNode;
+  areas: ReactNode;
+  billing: ReactNode;
+  website: ReactNode;
+}) {
   // Null until mounted, so the server and the first client render agree; the
   // remembered tab is applied on the first commit instead.
   const [chosen, setChosen] = useState<string | null>(null);
@@ -61,6 +72,9 @@ export function SettingsTabs({ scheduling, areas, website }: { scheduling: React
       </TabsContent>
       <TabsContent value="areas" className="mt-6">
         {areas}
+      </TabsContent>
+      <TabsContent value="billing" className="mt-6">
+        {billing}
       </TabsContent>
       <TabsContent value="website" className="mt-6">
         {website}

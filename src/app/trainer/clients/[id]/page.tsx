@@ -2,20 +2,31 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { formatInTimeZone } from "date-fns-tz";
 import { db } from "@/lib/db";
-import { getSchedulingSettings } from "@/lib/settings";
+import { getTrainerSettings } from "@/lib/settings";
+import { getBalance, getLedger, getStatement } from "@/lib/wallet";
+import { ClientWallet } from "../client-wallet";
+import { monthRange } from "@/lib/month";
 import { StatusBadge } from "@/components/status-badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Mail, Phone, Repeat, StickyNote } from "lucide-react";
 import { MapLink } from "@/components/map-link";
 
-/** Past accepted sessions read as completed in history; everything else keeps its stored status. */
+/**
+ * Past accepted sessions read as completed in history; everything else keeps
+ * its stored status.
+ *
+ * COMPLETED is now persisted, so this is only a display fallback for rows the
+ * sweep has not reached yet. It must never drive a ledger write — that is what
+ * completeBooking and the sweep are for.
+ */
 function displayStatus(status: string, endAt: Date, now: Date) {
   return status === "ACCEPTED" && endAt < now ? "COMPLETED" : status;
 }
 
 export default async function ClientHistoryPage({ params }: PageProps<"/trainer/clients/[id]">) {
   const { id } = await params;
-  const { timezone: tz } = await getSchedulingSettings();
+  const settings = await getTrainerSettings();
+  const tz = settings.timezone;
   const client = await db.user.findFirst({
     where: { id, role: "CLIENT" },
     include: {
@@ -24,6 +35,15 @@ export default async function ClientHistoryPage({ params }: PageProps<"/trainer/
     },
   });
   if (!client) notFound();
+
+  // The statement month is a calendar month in the trainer's timezone, so it
+  // does not drift across a DST boundary.
+  const { from, to, label } = monthRange(new Date(), tz);
+  const [balance, ledger, statement] = await Promise.all([
+    getBalance(client.id),
+    getLedger(client.id, 50),
+    getStatement(client.id, from, to),
+  ]);
 
   const now = new Date();
   const rows = client.bookings.map((b) => ({ ...b, shown: displayStatus(b.status, b.endAt, now) }));
@@ -72,6 +92,36 @@ export default async function ClientHistoryPage({ params }: PageProps<"/trainer/
           </div>
         ))}
       </div>
+
+      <ClientWallet
+        clientId={client.id}
+        clientName={client.name ?? client.email}
+        balancePence={balance}
+        currency={settings.currency}
+        billingMode={client.billingMode}
+        policy={{ noticeHours: client.cancellationNoticeHours, depositPct: client.cancellationDepositPct }}
+        globalPolicy={{ noticeHours: settings.cancellationNoticeHours, depositPct: settings.cancellationDepositPct }}
+        tz={tz}
+        ledger={ledger.map((e) => ({
+          id: e.id,
+          amountPence: e.amountPence,
+          currency: e.currency,
+          reason: e.reason,
+          note: e.note,
+          createdAt: e.createdAt.toISOString(),
+          runningBalance: e.runningBalance,
+          booking: e.booking
+            ? { startAt: e.booking.startAt.toISOString(), durationMin: e.booking.durationMin, sessionType: e.booking.sessionType }
+            : null,
+        }))}
+        statement={{
+          label,
+          chargedPence: statement.chargedPence,
+          creditedPence: statement.creditedPence,
+          openingPence: statement.openingPence,
+          closingPence: statement.openingPence + statement.netPence,
+        }}
+      />
 
       {(client.emergencyContact || client.notes || client.locations.length > 0) && (
         <Card>
