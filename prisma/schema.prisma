@@ -114,6 +114,16 @@ model TrainerSettings {
   cancellationDepositPct  Int    @default(40)
   /// ACCEPTED sessions this many hours past their end are swept to COMPLETED.
   autoCompleteAfterHours  Int    @default(24)
+
+  // ---------- Client scoring ----------
+  /// How much each dimension counts toward a client's overall score. Stored as
+  /// percentages that need not sum to 100 — they are normalised on read, so
+  /// nudging one weight does not force the others to be rebalanced by hand.
+  /// TRAINER-ONLY, like everything else in client health.
+  weightReliability Int @default(35)
+  weightValue       Int @default(30)
+  weightPayment     Int @default(25)
+  weightEffort      Int @default(10)
 }
 
 /// Towns/areas the trainer covers, each with its own radius. When none exist, TrainerSettings.maxRadiusMiles

@@ -1,7 +1,15 @@
 import { db } from "@/lib/db";
 import { getTrainerSettings } from "@/lib/settings";
 import { resolvePolicy } from "@/lib/cancellation";
-import { computeHealth, gapsBetween, medianOf, type ClientFacts, type ClientHealth } from "@/lib/client-health";
+import {
+  computeHealth,
+  gapsBetween,
+  medianOf,
+  normaliseWeights,
+  type ClientFacts,
+  type ClientHealth,
+  type ScoreWeights,
+} from "@/lib/client-health";
 
 /**
  * Turns what the database holds into the facts the scorer needs.
@@ -119,6 +127,21 @@ export function factsFrom(
   };
 }
 
+/** The trainer's configured weights, normalised so they always sum to 100. */
+export function weightsFrom(s: {
+  weightReliability: number;
+  weightValue: number;
+  weightPayment: number;
+  weightEffort: number;
+}): ScoreWeights {
+  return normaliseWeights({
+    reliability: s.weightReliability,
+    value: s.weightValue,
+    payment: s.weightPayment,
+    effort: s.weightEffort,
+  });
+}
+
 const bookingSelect = {
   status: true,
   startAt: true,
@@ -149,7 +172,7 @@ export async function getClientHealth(clientId: string, now: Date = new Date()):
     getTrainerSettings(),
   ]);
   if (!client) return null;
-  return computeHealth(factsFrom(client, client.bookings, client.walletEntries, settings, now));
+  return computeHealth(factsFrom(client, client.bookings, client.walletEntries, settings, now), weightsFrom(settings));
 }
 
 /**
@@ -176,7 +199,8 @@ export async function getAllClientHealth(now: Date = new Date()): Promise<Map<st
     getTrainerSettings(),
   ]);
 
+  const weights = weightsFrom(settings);
   return new Map(
-    clients.map((c) => [c.id, computeHealth(factsFrom(c, c.bookings, c.walletEntries, settings, now))]),
+    clients.map((c) => [c.id, computeHealth(factsFrom(c, c.bookings, c.walletEntries, settings, now), weights)]),
   );
 }

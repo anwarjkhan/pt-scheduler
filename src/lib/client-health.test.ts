@@ -2,6 +2,10 @@ import { describe, expect, it } from "vitest";
 import {
   cancellationWeight,
   computeHealth,
+  DEFAULT_WEIGHTS,
+  normaliseWeights,
+  PROVISIONAL_CEILING,
+  scoreBand,
   gapsBetween,
   hasEnoughHistory,
   isDrifting,
@@ -282,5 +286,119 @@ describe("daysInDebt — only the current spell counts", () => {
       { amountPence: -12000, createdAt: d("2026-06-01") },
     ];
     expect(daysInDebt(rows, now)).toBe(7);
+  });
+});
+
+describe("the overall score", () => {
+  it("is a weighted blend of the dimensions", () => {
+    const h = computeHealth(f({ balancePence: 36000, travelHours: null }));
+    // Reliability 100, payment 100, value high, effort uncounted (no travel).
+    expect(h.overall?.score).toBeGreaterThan(90);
+  });
+
+  it("ranks a reliable payer above a flaky debtor", () => {
+    const good = computeHealth(f({ balancePence: 36000 }));
+    const bad = computeHealth(
+      f({ completed: 10, noShows: 3, balancePence: -30000, daysInDebtFor: 90 }),
+    );
+    expect(good.overall!.score).toBeGreaterThan(bad.overall!.score);
+  });
+
+  it("leaves an unmeasured dimension out rather than scoring it zero", () => {
+    const unmeasured = computeHealth(f({ travelHours: null }));
+    const measured = computeHealth(f({ travelHours: 4 }));
+    // Dropping effort must not drag the total down; renormalising keeps it fair.
+    expect(unmeasured.overall!.score).toBeGreaterThanOrEqual(measured.overall!.score);
+    expect(unmeasured.overall!.parts.find((p) => p.key === "effort")!.counted).toBe(false);
+  });
+
+  it("follows the weights it is given", () => {
+    const facts = f({ completed: 10, noShows: 4, balancePence: 36000 }); // poor reliability, perfect payment
+    const reliabilityLed = computeHealth(facts, { reliability: 90, value: 5, payment: 5, effort: 0 });
+    const paymentLed = computeHealth(facts, { reliability: 5, value: 5, payment: 90, effort: 0 });
+    expect(paymentLed.overall!.score).toBeGreaterThan(reliabilityLed.overall!.score);
+  });
+
+  it("still produces a number on thin history, but marks it provisional", () => {
+    const h = computeHealth(f({ completed: 2, tenureDays: 10 }));
+    expect(h.overall!.score).toBeGreaterThan(0);
+    expect(h.overall!.confident).toBe(false);
+    expect(h.status).toBe("TOO_EARLY");
+  });
+
+  it("marks a settled score confident", () => {
+    expect(computeHealth(f()).overall!.confident).toBe(true);
+  });
+
+  it("gives no score at all for an exempt client", () => {
+    expect(computeHealth(f({ exempt: true })).overall).toBeNull();
+  });
+
+  it("shows its working", () => {
+    const parts = computeHealth(f()).overall!.parts;
+    expect(parts.map((p) => p.key).sort()).toEqual(["effort", "payment", "reliability", "value"]);
+  });
+
+  it("stays within 0–100 however odd the weights", () => {
+    for (const w of [
+      { reliability: 1000, value: 0, payment: 0, effort: 0 },
+      { reliability: 0, value: 0, payment: 0, effort: 0 },
+      { reliability: -5, value: 10, payment: 10, effort: 10 },
+    ]) {
+      const got = computeHealth(f(), w).overall!.score;
+      expect(got).toBeGreaterThanOrEqual(0);
+      expect(got).toBeLessThanOrEqual(100);
+    }
+  });
+});
+
+describe("normaliseWeights", () => {
+  it("scales any set to sum to 100", () => {
+    const w = normaliseWeights({ reliability: 7, value: 7, payment: 7, effort: 7 });
+    expect(w.reliability + w.value + w.payment + w.effort).toBe(100);
+  });
+
+  it("preserves the ratios", () => {
+    const w = normaliseWeights({ reliability: 60, value: 20, payment: 20, effort: 0 });
+    expect(w).toEqual({ reliability: 60, value: 20, payment: 20, effort: 0 });
+  });
+
+  it("falls back to the defaults rather than dividing by zero", () => {
+    expect(normaliseWeights({ reliability: 0, value: 0, payment: 0, effort: 0 })).toEqual(DEFAULT_WEIGHTS);
+  });
+
+  it("ignores negatives", () => {
+    const w = normaliseWeights({ reliability: -10, value: 50, payment: 50, effort: 0 });
+    expect(w.reliability).toBe(0);
+  });
+});
+
+describe("scoreBand — the number is never the only cue", () => {
+  it("names each range", () => {
+    expect(scoreBand(95)).toBe("excellent");
+    expect(scoreBand(75)).toBe("good");
+    expect(scoreBand(55)).toBe("fair");
+    expect(scoreBand(20)).toBe("poor");
+  });
+});
+
+describe("the provisional ceiling", () => {
+  it("keeps a thin-history score out of the top band", () => {
+    const h = computeHealth(f({ completed: 3, tenureDays: 10, balancePence: 36000 }));
+    expect(h.overall!.confident).toBe(false);
+    expect(h.overall!.score).toBeLessThanOrEqual(PROVISIONAL_CEILING);
+  });
+
+  it("lets a client who has earned it rank above one who might not", () => {
+    const earned = computeHealth(f({ balancePence: 36000 }));
+    const promising = computeHealth(f({ completed: 3, tenureDays: 10, balancePence: 36000 }));
+    expect(earned.overall!.score).toBeGreaterThan(promising.overall!.score);
+  });
+
+  it("only caps — it never lifts a weak score up to the ceiling", () => {
+    const weak = computeHealth(f({ completed: 3, tenureDays: 10, noShows: 2, balancePence: -30000, daysInDebtFor: 90 }));
+    const strong = computeHealth(f({ completed: 3, tenureDays: 10, balancePence: 36000 }));
+    expect(weak.overall!.score).toBeLessThan(strong.overall!.score);
+    expect(weak.overall!.score).toBeLessThan(PROVISIONAL_CEILING);
   });
 });

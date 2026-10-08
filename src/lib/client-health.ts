@@ -80,6 +80,36 @@ export type Dimension = {
   confident: boolean;
 };
 
+/**
+ * How much each dimension counts toward the overall score. Trainer-editable,
+ * because what makes a client worth keeping is a judgement about the business,
+ * not a fact about the data.
+ */
+export type ScoreWeights = {
+  reliability: number;
+  value: number;
+  payment: number;
+  effort: number;
+};
+
+/**
+ * Reliability and money lead; travel counts for little, since the client did
+ * not choose where the trainer lives.
+ */
+export const DEFAULT_WEIGHTS: ScoreWeights = { reliability: 35, value: 30, payment: 25, effort: 10 };
+
+export type OverallScore = {
+  /** 0–100. */
+  score: number;
+  /**
+   * False when the score rests on too little history. Still a number, but one
+   * to be read as a first impression rather than a verdict.
+   */
+  confident: boolean;
+  /** What actually went into it, for the trainer who wants to see the sum. */
+  parts: { key: keyof ScoreWeights; score: number; weight: number; counted: boolean }[];
+};
+
 export type ClientHealth = {
   reliability: Dimension;
   value: Dimension;
@@ -88,6 +118,8 @@ export type ClientHealth = {
   status: HealthStatus;
   /** Why the status is what it is, in the trainer's terms. */
   headline: string;
+  /** One number, for ranking and comparison. Null when the client is exempt. */
+  overall: OverallScore | null;
 };
 
 /**
@@ -249,6 +281,83 @@ export function isDrifting(f: ClientFacts): boolean {
 }
 
 /**
+ * The four dimensions as one number.
+ *
+ * A dimension that could not be measured is left out and the remaining weights
+ * are renormalised, rather than counting it as zero. Travel is usually the
+ * missing one, and scoring an unmeasured distance as nought would quietly
+ * punish every client until the commute cache fills up.
+ *
+ * `confident` carries whether there is enough history behind it. The number is
+ * still shown — a trainer asking "how is this client doing?" deserves an
+ * answer on day one — but it is marked, and the UI sorts provisional scores
+ * below settled ones.
+ */
+export function overallScore(dims: Pick<ClientHealth, "reliability" | "value" | "effort" | "payment">, weights: ScoreWeights = DEFAULT_WEIGHTS): OverallScore {
+  const entries: { key: keyof ScoreWeights; d: Dimension }[] = [
+    { key: "reliability", d: dims.reliability },
+    { key: "value", d: dims.value },
+    { key: "payment", d: dims.payment },
+    { key: "effort", d: dims.effort },
+  ];
+
+  // A dimension counts when it has something real to say. Effort with no
+  // travel data reports `confident: false` and is skipped; reliability on a
+  // thin history still counts, because "2 of 3 kept" is a genuine reading —
+  // it is the sample size that is small, which `confident` below records.
+  const parts = entries.map(({ key, d }) => ({
+    key,
+    score: d.score,
+    weight: Math.max(0, weights[key] ?? 0),
+    counted: key === "effort" ? d.confident : d.score > 0 || d.confident,
+  }));
+
+  const totalWeight = parts.filter((p) => p.counted).reduce((n, p) => n + p.weight, 0);
+  if (totalWeight === 0) return { score: 0, confident: false, parts };
+
+  const weighted = parts
+    .filter((p) => p.counted)
+    .reduce((n, p) => n + p.score * p.weight, 0);
+
+  const raw = weighted / totalWeight;
+  const confident = dims.reliability.confident;
+
+  // A flawless record over three sessions is not the same achievement as one
+  // over thirty, and showing both as 100 invites the provisional number being
+  // read as settled. Hold provisional scores just under the top band so a
+  // client who has actually earned it always ranks above one who might.
+  return {
+    score: pct(confident ? raw : Math.min(raw, PROVISIONAL_CEILING)),
+    confident,
+    parts,
+  };
+}
+
+/** The highest a score can read before there is enough history to back it. */
+export const PROVISIONAL_CEILING = 84;
+
+/** Normalise weights to sum to 100, preserving their ratios. */
+export function normaliseWeights(w: ScoreWeights): ScoreWeights {
+  const total = (["reliability", "value", "payment", "effort"] as const).reduce((n, k) => n + Math.max(0, w[k] || 0), 0);
+  if (total === 0) return DEFAULT_WEIGHTS;
+  const scale = 100 / total;
+  return {
+    reliability: Math.round(Math.max(0, w.reliability) * scale),
+    value: Math.round(Math.max(0, w.value) * scale),
+    payment: Math.round(Math.max(0, w.payment) * scale),
+    effort: Math.round(Math.max(0, w.effort) * scale),
+  };
+}
+
+/** A 0–100 score as a word, so the number is never the only cue. */
+export function scoreBand(score: number): "excellent" | "good" | "fair" | "poor" {
+  if (score >= 85) return "excellent";
+  if (score >= 70) return "good";
+  if (score >= 50) return "fair";
+  return "poor";
+}
+
+/**
  * The whole picture.
  *
  * Status is deliberately conservative: it says nothing at all until there is
@@ -257,17 +366,19 @@ export function isDrifting(f: ClientFacts): boolean {
  * a retention problem, the other is a money problem, and they call for
  * different conversations.
  */
-export function computeHealth(f: ClientFacts): ClientHealth {
+export function computeHealth(f: ClientFacts, weights: ScoreWeights = DEFAULT_WEIGHTS): ClientHealth {
   const dims = {
     reliability: reliability(f),
     value: value(f),
     effort: effort(f),
     payment: payment(f),
   };
+  const overall = overallScore(dims, weights);
 
   if (f.exempt) {
     return {
       ...dims,
+      overall: null,
       status: "EXEMPT",
       headline: f.exemptReason?.trim() || "Not scored, at your request",
     };
@@ -277,14 +388,14 @@ export function computeHealth(f: ClientFacts): ClientHealth {
   // fact, not an inference from behaviour.
   const badDebt = f.balancePence < 0 && (f.daysInDebtFor ?? 0) >= 45;
   if (badDebt) {
-    return { ...dims, status: "ATTENTION", headline: dims.payment.reason };
+    return { ...dims, overall, status: "ATTENTION", headline: dims.payment.reason };
   }
 
   if (!hasEnoughHistory(f)) {
     const need: string[] = [];
     if (f.completed < MIN_SESSIONS_TO_JUDGE) need.push(`${plural(MIN_SESSIONS_TO_JUDGE - f.completed, "more session")}`);
     if (f.tenureDays < MIN_DAYS_TO_JUDGE) need.push(`${plural(MIN_DAYS_TO_JUDGE - f.tenureDays, "more day")}`);
-    return { ...dims, status: "TOO_EARLY", headline: `Too early to tell — ${need.join(", ")}` };
+    return { ...dims, overall, status: "TOO_EARLY", headline: `Too early to tell — ${need.join(", ")}` };
   }
 
   const lateOrMissed = f.noShows + f.cancellations.filter((c) => c.late).length;
@@ -292,18 +403,20 @@ export function computeHealth(f: ClientFacts): ClientHealth {
   if (dims.reliability.score < 70 || lateOrMissed >= 3) {
     return {
       ...dims,
+      overall,
       status: "ATTENTION",
       headline: f.noShows > 0 ? `${plural(f.noShows, "no-show")} · ${dims.reliability.reason}` : dims.reliability.reason,
     };
   }
 
   if (f.balancePence < 0 && (f.daysInDebtFor ?? 0) >= 30) {
-    return { ...dims, status: "ATTENTION", headline: dims.payment.reason };
+    return { ...dims, overall, status: "ATTENTION", headline: dims.payment.reason };
   }
 
   if (isDrifting(f)) {
     return {
       ...dims,
+      overall,
       status: "DRIFTING",
       headline: `Last seen ${plural(f.daysSinceLastSession ?? 0, "day")} ago — usually every ${f.medianGapDays}d`,
     };
@@ -312,12 +425,13 @@ export function computeHealth(f: ClientFacts): ClientHealth {
   if (dims.reliability.score >= 90 && dims.value.score >= 70 && dims.payment.score >= 90) {
     return {
       ...dims,
+      overall,
       status: "STAR",
       headline: `${f.completed} sessions · ${dims.value.reason}`,
     };
   }
 
-  return { ...dims, status: "STEADY", headline: `${f.completed} sessions · ${dims.reliability.reason}` };
+  return { ...dims, overall, status: "STEADY", headline: `${f.completed} sessions · ${dims.reliability.reason}` };
 }
 
 /** Pence → "£60" / "£59.50". Compact: these appear inside a sentence. */
